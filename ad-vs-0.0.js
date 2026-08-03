@@ -1,6 +1,6 @@
 // --- Basic scene setup ---
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 5000);
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 8000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -11,23 +11,51 @@ window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// --- Starfield ---
-function makeStars(count, spread) {
+// --- Layered starfield ---
+function makeStarLayer(count, spread, size, color) {
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(count * 3);
   for (let i = 0; i < count * 3; i++) {
     positions[i] = (Math.random() - 0.5) * spread;
   }
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  const material = new THREE.PointsMaterial({ color: 0xffffff, size: 1.5 });
+  const material = new THREE.PointsMaterial({
+    color: color,
+    size: size,
+    transparent: true,
+    opacity: 0.9,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
   return new THREE.Points(geometry, material);
 }
-scene.add(makeStars(4000, 3000));
+scene.add(makeStarLayer(3000, 4000, 2.2, 0xffffff));
+scene.add(makeStarLayer(5000, 6000, 1.2, 0xaad4ff));
+scene.add(makeStarLayer(6000, 8000, 0.7, 0xffe9c4));
+
+const bgGeo = new THREE.SphereGeometry(6000, 32, 32);
+const bgMat = new THREE.MeshBasicMaterial({ color: 0x060613, side: THREE.BackSide });
+scene.add(new THREE.Mesh(bgGeo, bgMat));
+
+// --- Planets scattered around the map ---
+function makePlanet(radius, color, position) {
+  const geo = new THREE.SphereGeometry(radius, 32, 32);
+  const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.85, metalness: 0.05 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.copy(position);
+  scene.add(mesh);
+  return mesh;
+}
+makePlanet(120, 0x4a7c59, new THREE.Vector3(700, 50, -400));
+makePlanet(220, 0xc9a66b, new THREE.Vector3(-1000, -120, 800));
+makePlanet(90,  0x6b8ec9, new THREE.Vector3(350, -220, 1000));
+makePlanet(170, 0xb85c5c, new THREE.Vector3(-600, 320, -950));
+makePlanet(140, 0x8a6bc9, new THREE.Vector3(1200, -80, 300));
 
 // --- Ship (placeholder shape - swap for blocks later) ---
 const ship = new THREE.Group();
 const bodyGeo = new THREE.ConeGeometry(4, 12, 8);
-const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3cf0c5 });
+const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3cf0c5, metalness: 0.3, roughness: 0.4 });
 const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
 bodyMesh.rotation.x = Math.PI / 2;
 ship.add(bodyMesh);
@@ -38,27 +66,20 @@ const sun = new THREE.DirectionalLight(0xffffff, 1.2);
 sun.position.set(200, 300, 100);
 scene.add(sun);
 
-// --- Movement state ---
+// --- Input state ---
 const keys = {};
 window.addEventListener("keydown", (e) => {
-  keys[e.key.toLowerCase()] = true;
-  if (e.key.toLowerCase() === "c") toggleMouseLock();
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === "c" && !e.repeat) toggleMouseLock();
 });
 window.addEventListener("keyup", (e) => keys[e.key.toLowerCase()] = false);
 
 const moveSpeed = 1.2;
+const turnLerp = 0.12; // how quickly ship rotates to face travel direction while mouse-locked
+const tempFacingObj = new THREE.Object3D(); // reused each frame to compute target rotation
 
-function updateMovement() {
-  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
-  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(ship.quaternion);
-
-  if (keys["w"]) ship.position.addScaledVector(forward, -moveSpeed);
-  if (keys["s"]) ship.position.addScaledVector(forward, moveSpeed);
-  if (keys["a"]) ship.position.addScaledVector(right, moveSpeed);
-  if (keys["d"]) ship.position.addScaledVector(right, -moveSpeed);
-}
-
-// --- Camera orbit ---
+// --- Camera orbit state ---
 let camDistance = 40;
 let camYaw = 0;
 let camPitch = 0.3;
@@ -66,7 +87,6 @@ let dragging = false;
 let mouseLocked = false;
 let lastX = 0, lastY = 0;
 
-// RMB drag (still works even without lock mode)
 window.addEventListener("mousedown", (e) => {
   if (e.button === 2) { dragging = true; lastX = e.clientX; lastY = e.clientY; }
 });
@@ -75,10 +95,9 @@ window.addEventListener("mouseup", (e) => {
 });
 window.addEventListener("contextmenu", (e) => e.preventDefault());
 
-// "C" toggles a locked free-look mode using the Pointer Lock API
 function toggleMouseLock() {
   if (!mouseLocked) {
-    renderer.domElement.requestPointerLock();
+    renderer.domElement.requestPointerLock().catch(() => {});
   } else {
     document.exitPointerLock();
   }
@@ -102,11 +121,50 @@ window.addEventListener("mousemove", (e) => {
     return;
   }
 
-  // Flipped so mouse-right = counterclockwise orbit, mouse-down = look down
-  camYaw -= dx * 0.005;
-  camPitch -= dy * 0.005;
+  camYaw += dx * 0.005;    // mouse right -> counterclockwise orbit
+  camPitch += dy * 0.005;  // mouse up -> camera drops below ship, mouse down -> camera rises above
   camPitch = Math.max(-1.4, Math.min(1.4, camPitch));
 });
+
+// Direction the camera is looking INTO the scene (from camera toward ship and beyond)
+function getCameraForward() {
+  return new THREE.Vector3(
+    -Math.sin(camYaw) * Math.cos(camPitch),
+    -Math.sin(camPitch),
+    -Math.cos(camYaw) * Math.cos(camPitch)
+  ).normalize();
+}
+
+function updateMovement() {
+  if (mouseLocked) {
+    // Full 3D free-flight: ship moves relative to camera facing, including up/down
+    const forward = getCameraForward();
+    const worldUp = new THREE.Vector3(0, 1, 0);
+    const right = new THREE.Vector3().crossVectors(forward, worldUp).normalize();
+
+    let moved = false;
+    if (keys["w"]) { ship.position.addScaledVector(forward, moveSpeed); moved = true; }
+    if (keys["s"]) { ship.position.addScaledVector(forward, -moveSpeed); moved = true; }
+    if (keys["a"]) { ship.position.addScaledVector(right, -moveSpeed); moved = true; }
+    if (keys["d"]) { ship.position.addScaledVector(right, moveSpeed); moved = true; }
+
+    // Turn the ship to face the direction it's actually moving (the camera's forward)
+    if (moved) {
+      tempFacingObj.position.copy(ship.position);
+      tempFacingObj.lookAt(ship.position.clone().add(forward));
+      ship.quaternion.slerp(tempFacingObj.quaternion, turnLerp);
+    }
+  } else {
+    // Free-cam mode: strafe relative to ship's own current facing, ship doesn't auto-turn
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(ship.quaternion);
+
+    if (keys["w"]) ship.position.addScaledVector(forward, -moveSpeed);
+    if (keys["s"]) ship.position.addScaledVector(forward, moveSpeed);
+    if (keys["a"]) ship.position.addScaledVector(right, moveSpeed);
+    if (keys["d"]) ship.position.addScaledVector(right, -moveSpeed);
+  }
+}
 
 function updateCamera() {
   const offset = new THREE.Vector3(
