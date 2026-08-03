@@ -5,9 +5,31 @@
   <style>
     body { margin: 0; overflow: hidden; background: #000; }
     canvas { display: block; }
+    #controls-box {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      background: rgba(10, 15, 25, 0.7);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: #cfe8ff;
+      font-family: monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      pointer-events: none;
+      user-select: none;
+    }
+    #controls-box b { color: #3cf0c5; }
   </style>
 </head>
 <body>
+  <div id="controls-box">
+    <b>W A S D</b> — move / strafe<br>
+    <b>Hold RMB + move</b> — rotate camera<br>
+    <b>C</b> — toggle mouse look (ship flies where you look)<br>
+    <b>Esc</b> — release mouse lock
+  </div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="ad-vs-0.0.js"></script>
 </body>
