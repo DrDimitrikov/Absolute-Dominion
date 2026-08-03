@@ -1,71 +1,105 @@
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+// --- Basic scene setup ---
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 5000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-const ship = {
-  x: canvas.width / 2,
-  y: canvas.height / 2,
-  angle: 0,          // facing direction, in radians
-  velX: 0,
-  velY: 0,
-  thrust: 0.15,       // acceleration per frame while thrusting
-  turnSpeed: 0.06,    // radians per frame
-  friction: 0.99,     // space "drag" so it doesn't feel too slippery, set to 1 for true Newtonian
-  size: 18
-};
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
 
-const keys = {};
-window.addEventListener("keydown", (e) => keys[e.key] = true);
-window.addEventListener("keyup", (e) => keys[e.key] = false);
-
-function update() {
-  // Rotate
-  if (keys["ArrowLeft"]) ship.angle -= ship.turnSpeed;
-  if (keys["ArrowRight"]) ship.angle += ship.turnSpeed;
-
-  // Thrust forward in whatever direction we're facing
-  if (keys["ArrowUp"]) {
-    ship.velX += Math.cos(ship.angle) * ship.thrust;
-    ship.velY += Math.sin(ship.angle) * ship.thrust;
+// --- Starfield ---
+function makeStars(count, spread) {
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(count * 3);
+  for (let i = 0; i < count * 3; i++) {
+    positions[i] = (Math.random() - 0.5) * spread;
   }
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  const material = new THREE.PointsMaterial({ color: 0xffffff, size: 1.5 });
+  return new THREE.Points(geometry, material);
+}
+scene.add(makeStars(4000, 3000));
 
-  // Apply drag
-  ship.velX *= ship.friction;
-  ship.velY *= ship.friction;
+// --- Ship (placeholder shape - swap for blocks later) ---
+const ship = new THREE.Group();
+const bodyGeo = new THREE.ConeGeometry(4, 12, 8);
+const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3cf0c5 });
+const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+bodyMesh.rotation.x = Math.PI / 2; // point cone forward along -Z
+ship.add(bodyMesh);
+scene.add(ship);
 
-  // Move
-  ship.x += ship.velX;
-  ship.y += ship.velY;
+// Basic lighting so the ship isn't a black silhouette
+scene.add(new THREE.AmbientLight(0x404060, 1.5));
+const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+sun.position.set(200, 300, 100);
+scene.add(sun);
 
-  // Wrap around screen edges (temporary, until we have a real universe)
-  if (ship.x < 0) ship.x = canvas.width;
-  if (ship.x > canvas.width) ship.x = 0;
-  if (ship.y < 0) ship.y = canvas.height;
-  if (ship.y > canvas.height) ship.y = 0;
+// --- Movement state ---
+const keys = {};
+window.addEventListener("keydown", (e) => keys[e.key.toLowerCase()] = true);
+window.addEventListener("keyup", (e) => keys[e.key.toLowerCase()] = false);
+
+const moveSpeed = 1.2;
+
+function updateMovement() {
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(ship.quaternion);
+
+  if (keys["w"]) ship.position.addScaledVector(forward, moveSpeed);
+  if (keys["s"]) ship.position.addScaledVector(forward, -moveSpeed);
+  if (keys["a"]) ship.position.addScaledVector(right, -moveSpeed);
+  if (keys["d"]) ship.position.addScaledVector(right, moveSpeed);
 }
 
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+// --- Camera orbit (right-click drag) ---
+let camDistance = 40;
+let camYaw = 0;
+let camPitch = 0.3;
+let dragging = false;
+let lastX = 0, lastY = 0;
 
-  // Draw ship as a triangle pointing in its facing direction
-  ctx.save();
-  ctx.translate(ship.x, ship.y);
-  ctx.rotate(ship.angle);
+window.addEventListener("mousedown", (e) => {
+  if (e.button === 2) { dragging = true; lastX = e.clientX; lastY = e.clientY; }
+});
+window.addEventListener("mouseup", (e) => {
+  if (e.button === 2) dragging = false;
+});
+window.addEventListener("contextmenu", (e) => e.preventDefault()); // stop right-click menu
 
-  ctx.fillStyle = "lime";
-  ctx.beginPath();
-  ctx.moveTo(ship.size, 0);
-  ctx.lineTo(-ship.size / 1.5, ship.size / 1.5);
-  ctx.lineTo(-ship.size / 1.5, -ship.size / 1.5);
-  ctx.closePath();
-  ctx.fill();
+window.addEventListener("mousemove", (e) => {
+  if (!dragging) return;
+  const dx = e.clientX - lastX;
+  const dy = e.clientY - lastY;
+  lastX = e.clientX;
+  lastY = e.clientY;
 
-  ctx.restore();
+  camYaw -= dx * 0.005;
+  camPitch -= dy * 0.005;
+  camPitch = Math.max(-1.4, Math.min(1.4, camPitch)); // clamp so you can't flip over the top
+});
+
+function updateCamera() {
+  // Orbit position relative to the ship
+  const offset = new THREE.Vector3(
+    Math.sin(camYaw) * Math.cos(camPitch),
+    Math.sin(camPitch),
+    Math.cos(camYaw) * Math.cos(camPitch)
+  ).multiplyScalar(camDistance);
+
+  camera.position.copy(ship.position).add(offset);
+  camera.lookAt(ship.position);
 }
 
-function gameLoop() {
-  update();
-  draw();
-  requestAnimationFrame(gameLoop);
+// --- Main loop ---
+function animate() {
+  requestAnimationFrame(animate);
+  updateMovement();
+  updateCamera();
+  renderer.render(scene, camera);
 }
-
-gameLoop();
+animate();
