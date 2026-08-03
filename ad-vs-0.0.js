@@ -29,11 +29,10 @@ const ship = new THREE.Group();
 const bodyGeo = new THREE.ConeGeometry(4, 12, 8);
 const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3cf0c5 });
 const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-bodyMesh.rotation.x = Math.PI / 2; // point cone forward along -Z
+bodyMesh.rotation.x = Math.PI / 2;
 ship.add(bodyMesh);
 scene.add(ship);
 
-// Basic lighting so the ship isn't a black silhouette
 scene.add(new THREE.AmbientLight(0x404060, 1.5));
 const sun = new THREE.DirectionalLight(0xffffff, 1.2);
 sun.position.set(200, 300, 100);
@@ -41,7 +40,10 @@ scene.add(sun);
 
 // --- Movement state ---
 const keys = {};
-window.addEventListener("keydown", (e) => keys[e.key.toLowerCase()] = true);
+window.addEventListener("keydown", (e) => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key.toLowerCase() === "c") toggleMouseLock();
+});
 window.addEventListener("keyup", (e) => keys[e.key.toLowerCase()] = false);
 
 const moveSpeed = 1.2;
@@ -56,35 +58,57 @@ function updateMovement() {
   if (keys["d"]) ship.position.addScaledVector(right, -moveSpeed);
 }
 
-// --- Camera orbit (right-click drag) ---
+// --- Camera orbit ---
 let camDistance = 40;
 let camYaw = 0;
 let camPitch = 0.3;
 let dragging = false;
+let mouseLocked = false;
 let lastX = 0, lastY = 0;
 
+// RMB drag (still works even without lock mode)
 window.addEventListener("mousedown", (e) => {
   if (e.button === 2) { dragging = true; lastX = e.clientX; lastY = e.clientY; }
 });
 window.addEventListener("mouseup", (e) => {
   if (e.button === 2) dragging = false;
 });
-window.addEventListener("contextmenu", (e) => e.preventDefault()); // stop right-click menu
+window.addEventListener("contextmenu", (e) => e.preventDefault());
+
+// "C" toggles a locked free-look mode using the Pointer Lock API
+function toggleMouseLock() {
+  if (!mouseLocked) {
+    renderer.domElement.requestPointerLock();
+  } else {
+    document.exitPointerLock();
+  }
+}
+document.addEventListener("pointerlockchange", () => {
+  mouseLocked = document.pointerLockElement === renderer.domElement;
+});
 
 window.addEventListener("mousemove", (e) => {
-  if (!dragging) return;
-  const dx = e.clientX - lastX;
-  const dy = e.clientY - lastY;
-  lastX = e.clientX;
-  lastY = e.clientY;
+  let dx, dy;
 
-  camYaw += dx * 0.005;
-  camPitch += dy * 0.005;
-  camPitch = Math.max(-1.4, Math.min(1.4, camPitch)); // clamp so you can't flip over the top
+  if (mouseLocked) {
+    dx = e.movementX;
+    dy = e.movementY;
+  } else if (dragging) {
+    dx = e.clientX - lastX;
+    dy = e.clientY - lastY;
+    lastX = e.clientX;
+    lastY = e.clientY;
+  } else {
+    return;
+  }
+
+  // Flipped so mouse-right = counterclockwise orbit, mouse-down = look down
+  camYaw -= dx * 0.005;
+  camPitch -= dy * 0.005;
+  camPitch = Math.max(-1.4, Math.min(1.4, camPitch));
 });
 
 function updateCamera() {
-  // Orbit position relative to the ship
   const offset = new THREE.Vector3(
     Math.sin(camYaw) * Math.cos(camPitch),
     Math.sin(camPitch),
