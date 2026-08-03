@@ -76,8 +76,8 @@ window.addEventListener("keydown", (e) => {
 window.addEventListener("keyup", (e) => keys[e.key.toLowerCase()] = false);
 
 const moveSpeed = 1.2;
-const turnLerp = 0.12; // how quickly ship rotates to face travel direction while mouse-locked
-const tempFacingObj = new THREE.Object3D(); // reused each frame to compute target rotation
+const turnLerp = 0.12;
+const tempFacingObj = new THREE.Object3D();
 
 // --- Camera orbit state ---
 let camDistance = 40;
@@ -121,12 +121,11 @@ window.addEventListener("mousemove", (e) => {
     return;
   }
 
-  camYaw += dx * 0.005;    // mouse right -> counterclockwise orbit
+  camYaw -= dx * 0.005;    // mouse right -> camera moves left, mouse left -> camera moves right
   camPitch += dy * 0.005;  // mouse up -> camera drops below ship, mouse down -> camera rises above
   camPitch = Math.max(-1.4, Math.min(1.4, camPitch));
 });
 
-// Direction the camera is looking INTO the scene (from camera toward ship and beyond)
 function getCameraForward() {
   return new THREE.Vector3(
     -Math.sin(camYaw) * Math.cos(camPitch),
@@ -137,7 +136,6 @@ function getCameraForward() {
 
 function updateMovement() {
   if (mouseLocked) {
-    // Full 3D free-flight: ship moves relative to camera facing, including up/down
     const forward = getCameraForward();
     const worldUp = new THREE.Vector3(0, 1, 0);
     const right = new THREE.Vector3().crossVectors(forward, worldUp).normalize();
@@ -148,14 +146,12 @@ function updateMovement() {
     if (keys["a"]) { ship.position.addScaledVector(right, -moveSpeed); moved = true; }
     if (keys["d"]) { ship.position.addScaledVector(right, moveSpeed); moved = true; }
 
-    // Turn the ship to face the direction it's actually moving (the camera's forward)
     if (moved) {
       tempFacingObj.position.copy(ship.position);
       tempFacingObj.lookAt(ship.position.clone().add(forward));
       ship.quaternion.slerp(tempFacingObj.quaternion, turnLerp);
     }
   } else {
-    // Free-cam mode: strafe relative to ship's own current facing, ship doesn't auto-turn
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(ship.quaternion);
 
