@@ -50,10 +50,10 @@ function updateMovement() {
   const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
   const right = new THREE.Vector3(1, 0, 0).applyQuaternion(ship.quaternion);
 
-  if (keys["w"]) ship.position.addScaledVector(forward, moveSpeed);
-  if (keys["s"]) ship.position.addScaledVector(forward, -moveSpeed);
-  if (keys["a"]) ship.position.addScaledVector(right, -moveSpeed);
-  if (keys["d"]) ship.position.addScaledVector(right, moveSpeed);
+  if (keys["w"]) ship.position.addScaledVector(forward, -moveSpeed);
+  if (keys["s"]) ship.position.addScaledVector(forward, moveSpeed);
+  if (keys["a"]) ship.position.addScaledVector(right, moveSpeed);
+  if (keys["d"]) ship.position.addScaledVector(right, -moveSpeed);
 }
 
 // --- Camera orbit (right-click drag) ---
@@ -78,8 +78,8 @@ window.addEventListener("mousemove", (e) => {
   lastX = e.clientX;
   lastY = e.clientY;
 
-  camYaw -= dx * 0.005;
-  camPitch -= dy * 0.005;
+  camYaw += dx * 0.005;
+  camPitch += dy * 0.005;
   camPitch = Math.max(-1.4, Math.min(1.4, camPitch)); // clamp so you can't flip over the top
 });
 
