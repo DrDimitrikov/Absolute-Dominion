@@ -75,16 +75,22 @@
     <b>W A S D</b> — move / strafe<br>
     <b>Hold RMB + move</b> — rotate camera<br>
     <b>C</b> — toggle mouse look (ship flies where you look)<br>
+    <b>F</b> — fire weapons<br>
     <b>E</b> — open ship editor<br>
     <b>Esc</b> — release mouse lock
   </div>
 
   <div id="editor-ui">
     <h2>SHIP EDITOR</h2>
-    <div class="hint">Click a block, then click the grid to place it.<br><b>R</b> rotates the block.<br><b>E</b> exits and saves your ship.</div>
+    <div class="hint">
+      Click a block below, then click the grid to place it.<br>
+      <b>R</b> rotates the block you're about to place.<br>
+      <b>Q</b> deselects — click a placed block to select it (highlights yellow), then <b>X</b> deletes it.<br>
+      <b>E</b> exits and saves your ship.
+    </div>
     <div id="block-list"></div>
   </div>
-  <div id="editor-title">Hold RMB + move to rotate view &nbsp;|&nbsp; R = rotate block &nbsp;|&nbsp; E = exit &amp; save</div>
+  <div id="editor-title">RMB+move = rotate view &nbsp;|&nbsp; R = rotate &nbsp;|&nbsp; Q = deselect &nbsp;|&nbsp; X = delete &nbsp;|&nbsp; E = exit</div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="ad-vs-0.0.js"></script>
