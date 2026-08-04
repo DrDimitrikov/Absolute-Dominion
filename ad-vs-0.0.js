@@ -75,17 +75,16 @@ scene.add(sun);
 const GRID = 4;
 const GRID_HALF_RANGE = 20;
 
-// 9 rotation states: 4 flat spins (Y), tilt up/down (X), roll left/right (Z), and upside-down.
 const ROTATION_STATES = [
-  { x: 0, y: 0, z: 0 },                    // 0: default
-  { x: 0, y: Math.PI / 2, z: 0 },          // 1: yaw 90
-  { x: 0, y: Math.PI, z: 0 },              // 2: yaw 180
-  { x: 0, y: (3 * Math.PI) / 2, z: 0 },    // 3: yaw 270
-  { x: Math.PI / 2, y: 0, z: 0 },          // 4: tilt up
-  { x: -Math.PI / 2, y: 0, z: 0 },         // 5: tilt down
-  { x: 0, y: 0, z: Math.PI / 2 },          // 6: roll right
-  { x: 0, y: 0, z: -Math.PI / 2 },         // 7: roll left
-  { x: 0, y: 0, z: Math.PI }               // 8: upside down
+  { x: 0, y: 0, z: 0 },
+  { x: 0, y: Math.PI / 2, z: 0 },
+  { x: 0, y: Math.PI, z: 0 },
+  { x: 0, y: (3 * Math.PI) / 2, z: 0 },
+  { x: Math.PI / 2, y: 0, z: 0 },
+  { x: -Math.PI / 2, y: 0, z: 0 },
+  { x: 0, y: 0, z: Math.PI / 2 },
+  { x: 0, y: 0, z: -Math.PI / 2 },
+  { x: 0, y: 0, z: Math.PI }
 ];
 function applyRotationState(obj, idx) {
   const r = ROTATION_STATES[idx];
@@ -94,7 +93,6 @@ function applyRotationState(obj, idx) {
 
 function mat(color) { return new THREE.MeshStandardMaterial({ color, metalness: 0.3, roughness: 0.5 }); }
 
-// Shape-only group (no marker) - this is what's actually used for placed blocks & the flight ship.
 function makeShapeGroup(shapeMesh) {
   const g = new THREE.Group();
   g.add(shapeMesh);
@@ -116,14 +114,12 @@ const BLOCK_TYPES = [
 ];
 function blockTypeById(id) { return BLOCK_TYPES.find(b => b.id === id); }
 
-// Real block instance - shape only, no marker. Used for placed blocks & the actual flight ship.
 function createBlockMesh(typeId) {
   const group = blockTypeById(typeId).make();
   group.userData.isBlockRoot = true;
   return group;
 }
 
-// Ghost-only instance - shape PLUS a rotation marker, so you can see orientation while aiming.
 function createGhostPreview(typeId) {
   const group = createBlockMesh(typeId);
   const bt = blockTypeById(typeId);
@@ -567,21 +563,32 @@ function updateCamera() {
 
 // ============================================================
 // WEAPONS ("F" to fire)
+// Each weapon fires along the direction IT is actually facing -
+// combining its own block rotation with the ship's current orientation -
+// instead of always firing along the ship's nose direction.
 // ============================================================
 const projectiles = [];
 const projectileSpeed = 6;
 const projectileLife = 90;
+
+function getWeaponWorldDirection(block) {
+  const r = ROTATION_STATES[block.rot];
+  const localDir = new THREE.Vector3(0, 0, -1);
+  localDir.applyEuler(new THREE.Euler(r.x, r.y, r.z)); // the block's own rotation
+  localDir.applyQuaternion(ship.quaternion);            // then the ship's overall facing
+  return localDir.multiplyScalar(-1);                   // match travel-direction convention used elsewhere
+}
 
 function fireWeapons() {
   const weapons = getWeaponBlocks();
   if (weapons.length === 0) return;
 
   ship.updateMatrixWorld(true);
-  const forward = getShipForward();
 
   for (const w of weapons) {
     const localPos = new THREE.Vector3(w.gx * GRID, w.gy * GRID, w.gz * GRID);
     const worldPos = localPos.applyMatrix4(ship.matrixWorld);
+    const direction = getWeaponWorldDirection(w);
 
     const mesh = new THREE.Mesh(
       new THREE.SphereGeometry(0.6, 8, 8),
@@ -592,7 +599,7 @@ function fireWeapons() {
 
     projectiles.push({
       mesh,
-      velocity: forward.clone().multiplyScalar(-projectileSpeed),
+      velocity: direction.multiplyScalar(projectileSpeed),
       life: projectileLife
     });
   }
