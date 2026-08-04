@@ -1,636 +1,275 @@
-// ============================================================
-// BASIC SCENE SETUP (flight)
-// ============================================================
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 8000);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
 
-const editorCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+[85 lines collapsed]
 
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  editorCamera.aspect = window.innerWidth / window.innerHeight;
-  editorCamera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+    pivot,
+    mesh: moonMesh,
+    radius: moonRadius,
+    baseRadius: moonRadius,
+    orbitRadius: opts.orbitRadius,
+    orbitSpeed: opts.orbitSpeed,
+    resourceId: opts.resourceId,
+    maxResources: opts.maxResources,
+    remaining: opts.maxResources,
+    name: opts.name
+    name: opts.name,
+    respawnAt: 0,
+    active: true
+  };
+  moons.push(moon);
+  return moon;
 
-// --- Layered starfield ---
-function makeStarLayer(count, spread, size, color) {
-  const geometry = new THREE.BufferGeometry();
-  const positions = new Float32Array(count * 3);
-  for (let i = 0; i < count * 3; i++) {
-    positions[i] = (Math.random() - 0.5) * spread;
+[1 line collapsed]
+
+const planetDefs = [
+  { radius: 120, color: 0x4a7c59, pos: new THREE.Vector3(700, 50, -400),
+    moon: { radius: 28, color: 0x9aa3ad, orbitRadius: 220, orbitSpeed: 0.0035, phase: 0.4, tilt: 0.15, resourceId: "iron", maxResources: 120, name: "Ferrum Moon" } },
+    moon: { radius: 28, color: 0x9aa3ad, orbitRadius: 220, orbitSpeed: 0.0035, phase: 0.4, tilt: 0.15, resourceId: "iron", maxResources: 1400, name: "Ferrum Moon" } },
+  { radius: 220, color: 0xc9a66b, pos: new THREE.Vector3(-1000, -120, 800),
+    moon: { radius: 36, color: 0x5c4a32, orbitRadius: 340, orbitSpeed: 0.0022, phase: 1.2, tilt: -0.2, resourceId: "oil", maxResources: 100, name: "Tar Moon", emissive: 0x221100 } },
+    moon: { radius: 36, color: 0x5c4a32, orbitRadius: 340, orbitSpeed: 0.0022, phase: 1.2, tilt: -0.2, resourceId: "oil", maxResources: 1600, name: "Tar Moon", emissive: 0x221100 } },
+  { radius: 90,  color: 0x6b8ec9, pos: new THREE.Vector3(350, -220, 1000),
+    moon: { radius: 22, color: 0x66e0ff, orbitRadius: 180, orbitSpeed: 0.0045, phase: 2.1, tilt: 0.35, resourceId: "plasma_crystal", maxResources: 80, name: "Crystal Moon", emissive: 0x114466 } },
+    moon: { radius: 22, color: 0x66e0ff, orbitRadius: 180, orbitSpeed: 0.0045, phase: 2.1, tilt: 0.35, resourceId: "plasma_crystal", maxResources: 1200, name: "Crystal Moon", emissive: 0x114466 } },
+  { radius: 170, color: 0xb85c5c, pos: new THREE.Vector3(-600, 320, -950),
+    moon: { radius: 30, color: 0xcfe4ff, orbitRadius: 280, orbitSpeed: 0.0028, phase: 3.5, tilt: 0.1, resourceId: "void_ice", maxResources: 110, name: "Cryo Moon", emissive: 0x223355 } },
+    moon: { radius: 30, color: 0xcfe4ff, orbitRadius: 280, orbitSpeed: 0.0028, phase: 3.5, tilt: 0.1, resourceId: "void_ice", maxResources: 1500, name: "Cryo Moon", emissive: 0x223355 } },
+  { radius: 140, color: 0x8a6bc9, pos: new THREE.Vector3(1200, -80, 300),
+    moon: { radius: 26, color: 0xffe6a0, orbitRadius: 250, orbitSpeed: 0.0038, phase: 5.0, tilt: -0.25, resourceId: "stardust", maxResources: 90, name: "Dust Moon", emissive: 0x443300 } }
+    moon: { radius: 26, color: 0xffe6a0, orbitRadius: 250, orbitSpeed: 0.0038, phase: 5.0, tilt: -0.25, resourceId: "stardust", maxResources: 1300, name: "Dust Moon", emissive: 0x443300 } }
+];
+for (const def of planetDefs) {
+
+[3 lines collapsed]
+
+}
+function updateMoons() {
+  const now = performance.now();
+  for (const m of moons) {
+    m.pivot.rotation.y += m.orbitSpeed;
+    m.mesh.rotation.y += 0.01;
+    if (m.active) m.mesh.rotation.y += 0.01;
+    if (!m.active && m.respawnAt && now >= m.respawnAt) {
+      respawnMoon(m);
+    }
   }
-  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  const material = new THREE.PointsMaterial({
-    color: color, size: size, transparent: true, opacity: 0.9,
-    blending: THREE.AdditiveBlending, depthWrite: false
-  });
-  return new THREE.Points(geometry, material);
 }
-scene.add(makeStarLayer(3000, 4000, 2.2, 0xffffff));
-scene.add(makeStarLayer(5000, 6000, 1.2, 0xaad4ff));
-scene.add(makeStarLayer(6000, 8000, 0.7, 0xffe9c4));
 
-const bgGeo = new THREE.SphereGeometry(6000, 32, 32);
-const bgMat = new THREE.MeshBasicMaterial({ color: 0x060613, side: THREE.BackSide });
-scene.add(new THREE.Mesh(bgGeo, bgMat));
+[1 line collapsed]
 
-// --- Planets ---
-function makePlanet(radius, color, position) {
-  const geo = new THREE.SphereGeometry(radius, 32, 32);
-  const mat2 = new THREE.MeshStandardMaterial({ color: color, roughness: 0.85, metalness: 0.05 });
-  const mesh = new THREE.Mesh(geo, mat2);
-  mesh.position.copy(position);
-  scene.add(mesh);
-  return mesh;
+  return moon.mesh.getWorldPosition(out);
 }
-makePlanet(120, 0x4a7c59, new THREE.Vector3(700, 50, -400));
-makePlanet(220, 0xc9a66b, new THREE.Vector3(-1000, -120, 800));
-makePlanet(90,  0x6b8ec9, new THREE.Vector3(350, -220, 1000));
-makePlanet(170, 0xb85c5c, new THREE.Vector3(-600, 320, -950));
-makePlanet(140, 0x8a6bc9, new THREE.Vector3(1200, -80, 300));
-
+function getMoonEffectiveRadius(moon) {
+  return moon.baseRadius * moon.mesh.scale.x;
+}
+function updateMoonScale(moon) {
+  const pct = moon.maxResources > 0 ? moon.remaining / moon.maxResources : 0;
+  const scale = Math.max(0.08, pct);
+  moon.mesh.scale.setScalar(scale);
+  moon.radius = moon.baseRadius * scale;
+}
+function despawnMoon(moon) {
+  moon.remaining = 0;
+  moon.active = false;
+  moon.mesh.visible = false;
+  moon.mesh.scale.setScalar(0.01);
+  moon.radius = 0;
+  moon.respawnAt = performance.now() + 30000;
+}
+function respawnMoon(moon) {
+  moon.remaining = moon.maxResources;
+  moon.active = true;
+  moon.respawnAt = 0;
+  moon.mesh.visible = true;
+  moon.mesh.scale.setScalar(1);
+  moon.radius = moon.baseRadius;
+}
 // --- Ship (rebuilt from blocks; starts as a placeholder cone) ---
 const ship = new THREE.Group();
 const placeholderMesh = new THREE.Mesh(
-  new THREE.ConeGeometry(4, 12, 8),
-  new THREE.MeshStandardMaterial({ color: 0x3cf0c5, metalness: 0.3, roughness: 0.4 })
-);
-placeholderMesh.rotation.x = Math.PI / 2;
-ship.add(placeholderMesh);
-scene.add(ship);
 
-scene.add(new THREE.AmbientLight(0x404060, 1.5));
-const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-sun.position.set(200, 300, 100);
-scene.add(sun);
+[192 lines collapsed]
 
-// ============================================================
-// BLOCK TYPES
-// ============================================================
-const GRID = 4;
-const GRID_HALF_RANGE = 20;
+  // --- Mining ---
+  {
+    id: "drill", label: "Mining Drill", category: "mining", color: 0xc4a574, markerOffset: -2.8, hp: 10,
+    mineRate: 0.35, make: () => makeDrillBlock()
+    mineRate: 1.8, make: () => makeDrillBlock()
+  },
+  {
+    id: "mining_laser", label: "Mining Laser", category: "mining", color: 0x44ddff, markerOffset: -2.6, hp: 9,
+    mineRate: 0.55, make: () => makeMiningLaser()
+    mineRate: 3.2, make: () => makeMiningLaser()
+  },
+  {
+    id: "ore_hold", label: "Ore Hold", category: "mining", color: 0x6b5744, markerOffset: -2.2, hp: 12,
+    cargoBonus: 40, make: () => makeOreHold()
+    cargoBonus: 120, make: () => makeOreHold()
+  },
+  // --- Weapons (unique stats) ---
 
-const ROTATION_STATES = [
-  { x: 0, y: 0, z: 0 },
-  { x: 0, y: Math.PI / 2, z: 0 },
-  { x: 0, y: Math.PI, z: 0 },
-  { x: 0, y: (3 * Math.PI) / 2, z: 0 },
-  { x: Math.PI / 2, y: 0, z: 0 },
-  { x: -Math.PI / 2, y: 0, z: 0 },
-  { x: 0, y: 0, z: Math.PI / 2 },
-  { x: 0, y: 0, z: -Math.PI / 2 },
-  { x: 0, y: 0, z: Math.PI }
-];
-function applyRotationState(obj, idx) {
-  const r = ROTATION_STATES[idx];
-  obj.rotation.set(r.x, r.y, r.z);
-}
+[426 lines collapsed]
 
-function mat(color) { return new THREE.MeshStandardMaterial({ color, metalness: 0.3, roughness: 0.5 }); }
-
-function makeShapeGroup(shapeMesh) {
-  const g = new THREE.Group();
-  g.add(shapeMesh);
-  return g;
-}
-
-const BLOCK_TYPES = [
-  { id: "cube",     label: "Hull Cube",  color: 0x8fa3b8, markerOffset: -2.2, make: () => makeShapeGroup(new THREE.Mesh(new THREE.BoxGeometry(3.6, 3.6, 3.6), mat(0x8fa3b8))) },
-  { id: "cone",     label: "Nose Cone",  color: 0x3cf0c5, markerOffset: -2.2, make: () => makeShapeGroup(new THREE.Mesh(new THREE.ConeGeometry(1.8, 3.6, 12), mat(0x3cf0c5))) },
-  { id: "sphere",   label: "Sphere Pod", color: 0xd7c15a, markerOffset: -2.2, make: () => makeShapeGroup(new THREE.Mesh(new THREE.SphereGeometry(1.8, 16, 16), mat(0xd7c15a))) },
-  { id: "cylinder", label: "Cylinder",   color: 0xb0b0b0, markerOffset: -2.2, make: () => makeShapeGroup(new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 3.6, 16), mat(0xb0b0b0))) },
-  { id: "pyramid",  label: "Wing Wedge", color: 0x7a8ccf, markerOffset: -2.4, make: () => makeShapeGroup(new THREE.Mesh(new THREE.ConeGeometry(2.2, 3.6, 4), mat(0x7a8ccf))) },
-  { id: "engine",   label: "Engine",     color: 0xff8c3c, markerOffset: -2.2, make: () => makeShapeGroup(new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.2, 3.6), mat(0xff8c3c))) },
-  { id: "weapon",   label: "Weapon",     color: 0xe64545, markerOffset: -2.4, make: () => {
-      const g = new THREE.CylinderGeometry(0.6, 0.6, 3.8, 10);
-      g.rotateX(Math.PI / 2);
-      return makeShapeGroup(new THREE.Mesh(g, mat(0xe64545)));
-    } }
-];
-function blockTypeById(id) { return BLOCK_TYPES.find(b => b.id === id); }
-
-function createBlockMesh(typeId) {
-  const group = blockTypeById(typeId).make();
-  group.userData.isBlockRoot = true;
-  return group;
-}
-
-function createGhostPreview(typeId) {
-  const group = createBlockMesh(typeId);
-  const bt = blockTypeById(typeId);
-  const marker = new THREE.Mesh(
-    new THREE.ConeGeometry(0.35, 0.9, 6),
-    new THREE.MeshBasicMaterial({ color: 0xffffff })
-  );
-  marker.position.set(0, 0, bt.markerOffset);
-  marker.rotation.x = -Math.PI / 2;
-  group.add(marker);
-  return group;
-}
-
-function findBlockRoot(obj) {
-  while (obj && !(obj.userData && obj.userData.isBlockRoot)) obj = obj.parent;
-  return obj;
-}
-
-let shipBlocks = [];
-
-function rebuildShipFromBlocks() {
-  while (ship.children.length) ship.remove(ship.children[0]);
-
-  if (shipBlocks.length === 0) {
-    ship.add(placeholderMesh);
-    return;
-  }
+const miningStatusEl = document.getElementById("mining-status");
+function getCargoCapacity() {
+  let cap = 50;
+  let cap = 200;
   for (const b of shipBlocks) {
-    const mesh = createBlockMesh(b.type);
-    mesh.position.set(b.gx * GRID, b.gy * GRID, b.gz * GRID);
-    applyRotationState(mesh, b.rot);
-    ship.add(mesh);
-  }
-}
+    const def = blockTypeById(b.type);
+    if (def && def.cargoBonus) cap += def.cargoBonus;
 
-function getEngineCount() {
-  return shipBlocks.filter(b => b.type === "engine").length;
-}
-function getWeaponBlocks() {
-  return shipBlocks.filter(b => b.type === "weapon");
-}
+[29 lines collapsed]
 
 // ============================================================
-// SHIP EDITOR SCENE
+// MINING
+// Tap M = focus camera on nearest moon
+// Hold M = auto-approach, then mine until depleted (cannot cancel)
 // ============================================================
-const editorScene = new THREE.Scene();
-editorScene.add(new THREE.AmbientLight(0x555566, 1.6));
-const editorLight = new THREE.DirectionalLight(0xffffff, 1.1);
-editorLight.position.set(100, 200, 100);
-editorScene.add(editorLight);
-
-const editorGrid = new THREE.GridHelper(GRID_HALF_RANGE * 2 * GRID, GRID_HALF_RANGE * 2, 0x3cf0c5, 0x334455);
-editorGrid.position.y = -GRID / 2;
-editorScene.add(editorGrid);
-
-const basePlaneSize = GRID_HALF_RANGE * 2 * GRID;
-const basePlane = new THREE.Mesh(
-  new THREE.PlaneGeometry(basePlaneSize, basePlaneSize),
-  new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.0 })
+let isMining = false;
+let miningPhase = "idle"; // idle | focused | approaching | mining
+let miningMoon = null;
+let mKeyDownAt = 0;
+const _moonWorld = new THREE.Vector3();
+const MINE_RANGE_PAD = 35;
+const _laserFrom = new THREE.Vector3();
+const _laserTo = new THREE.Vector3();
+const _laserDir = new THREE.Vector3();
+const _laserUp = new THREE.Vector3(0, 1, 0);
+const MINE_RANGE_PAD = 40;
+const M_HOLD_MS = 200;
+const APPROACH_SPEED_MULT = 1.35;
+const miningLaserBeam = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.45, 0.25, 1, 10),
+  new THREE.MeshBasicMaterial({
+    color: 0x66f0ff,
+    transparent: true,
+    opacity: 0.9,
+    depthWrite: false
+  })
 );
-basePlane.rotation.x = -Math.PI / 2;
-basePlane.position.y = -GRID / 2;
-editorScene.add(basePlane);
-
-const facingArrow = new THREE.ArrowHelper(
-  new THREE.Vector3(0, 0, 1),
-  new THREE.Vector3(0, 0, 0),
-  24,
-  0xffe14d,
-  6,
-  4
+miningLaserBeam.visible = false;
+scene.add(miningLaserBeam);
+const miningLaserGlow = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.9, 0.55, 1, 10),
+  new THREE.MeshBasicMaterial({
+    color: 0x33aaff,
+    transparent: true,
+    opacity: 0.28,
+    depthWrite: false
+  })
 );
-editorScene.add(facingArrow);
-
-const placedMeshes = [];
-const occupied = new Set();
-
-let selectedType = BLOCK_TYPES[0].id;
-let ghostRotation = 0;
-let ghostCell = { gx: 0, gy: 0, gz: 0, key: "0,0,0" };
-
-let selectedBlockIndex = null;
-let highlightHelper = null;
-
-const ghostGroup = new THREE.Group();
-ghostGroup.position.set(0, 0, 0);
-editorScene.add(ghostGroup);
-
-function rebuildGhostMesh() {
-  while (ghostGroup.children.length) ghostGroup.remove(ghostGroup.children[0]);
-
-  if (selectedType === null) {
-    ghostGroup.visible = false;
-    return;
-  }
-
-  const preview = createGhostPreview(selectedType);
-  preview.traverse((obj) => {
-    if (obj.isMesh) {
-      obj.material = obj.material.clone();
-      obj.material.transparent = true;
-      obj.material.opacity = 0.5;
-    }
-  });
-  ghostGroup.add(preview);
-  applyRotationState(ghostGroup, ghostRotation);
-  ghostGroup.visible = !occupied.has(ghostCell.key);
+miningLaserGlow.visible = false;
+scene.add(miningLaserGlow);
+function hasMiningGear() {
+  return shipBlocks.some(b => isMiningTool(b.type));
 }
-rebuildGhostMesh();
-
-function setSelectedType(id) {
-  selectedType = id;
-  clearSelection();
-  rebuildGhostMesh();
+function hasMiningLaser() {
+  return shipBlocks.some(b => b.type === "mining_laser");
 }
-
-function deselectPlacingBlock() {
-  selectedType = null;
-  document.querySelectorAll(".block-btn").forEach(b => b.classList.remove("selected"));
-  rebuildGhostMesh();
-}
-
-const blockListEl = document.getElementById("block-list");
-BLOCK_TYPES.forEach(bt => {
-  const btn = document.createElement("button");
-  btn.className = "block-btn" + (bt.id === selectedType ? " selected" : "");
-  btn.innerHTML = `<span class="swatch" style="background:#${bt.color.toString(16).padStart(6,"0")}"></span>${bt.label}`;
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".block-btn").forEach(b => b.classList.remove("selected"));
-    btn.classList.add("selected");
-    setSelectedType(bt.id);
-  });
-  blockListEl.appendChild(btn);
-});
-
-const raycaster = new THREE.Raycaster();
-const mouseNDC = new THREE.Vector2();
-
-function clampCell(v) {
-  return Math.max(-GRID_HALF_RANGE, Math.min(GRID_HALF_RANGE, v));
-}
-
-function updateGhost(clientX, clientY) {
-  if (selectedType === null) return;
-
-  mouseNDC.x = (clientX / window.innerWidth) * 2 - 1;
-  mouseNDC.y = -(clientY / window.innerHeight) * 2 + 1;
-  raycaster.setFromCamera(mouseNDC, editorCamera);
-
-  const targets = [basePlane, ...placedMeshes];
-  const hits = raycaster.intersectObjects(targets, true);
-
-  if (hits.length > 0) {
-    const hit = hits[0];
-    const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
-    const point = hit.point.clone().add(normal.multiplyScalar(GRID / 2));
-    const gx = clampCell(Math.round(point.x / GRID));
-    const gy = clampCell(Math.round(point.y / GRID));
-    const gz = clampCell(Math.round(point.z / GRID));
-    const key = `${gx},${gy},${gz}`;
-
-    ghostCell = { gx, gy, gz, key };
-    ghostGroup.position.set(gx * GRID, gy * GRID, gz * GRID);
-    ghostGroup.visible = !occupied.has(key);
-  }
-}
-
-function placeBlock() {
-  if (selectedType === null) return;
-  if (!ghostCell || occupied.has(ghostCell.key)) return;
-  const { gx, gy, gz, key } = ghostCell;
-
-  const mesh = createBlockMesh(selectedType);
-  mesh.position.set(gx * GRID, gy * GRID, gz * GRID);
-  applyRotationState(mesh, ghostRotation);
-  editorScene.add(mesh);
-  placedMeshes.push(mesh);
-  occupied.add(key);
-
-  shipBlocks.push({ type: selectedType, gx, gy, gz, rot: ghostRotation });
-}
-
-function trySelectBlock(clientX, clientY) {
-  mouseNDC.x = (clientX / window.innerWidth) * 2 - 1;
-  mouseNDC.y = -(clientY / window.innerHeight) * 2 + 1;
-  raycaster.setFromCamera(mouseNDC, editorCamera);
-
-  const hits = raycaster.intersectObjects(placedMeshes, true);
-  if (hits.length > 0) {
-    const root = findBlockRoot(hits[0].object);
-    const idx = placedMeshes.indexOf(root);
-    if (idx !== -1) {
-      selectBlock(idx);
-      return;
-    }
-  }
-  clearSelection();
-}
-
-function selectBlock(idx) {
-  clearSelection();
-  selectedBlockIndex = idx;
-  highlightHelper = new THREE.BoxHelper(placedMeshes[idx], 0xffe14d);
-  editorScene.add(highlightHelper);
-}
-
-function clearSelection() {
-  if (highlightHelper) {
-    editorScene.remove(highlightHelper);
-    highlightHelper = null;
-  }
-  selectedBlockIndex = null;
-}
-
-function deleteSelectedBlock() {
-  if (selectedBlockIndex === null) return;
-  const mesh = placedMeshes[selectedBlockIndex];
-  const block = shipBlocks[selectedBlockIndex];
-
-  editorScene.remove(mesh);
-  occupied.delete(`${block.gx},${block.gy},${block.gz}`);
-  placedMeshes.splice(selectedBlockIndex, 1);
-  shipBlocks.splice(selectedBlockIndex, 1);
-
-  clearSelection();
-}
-
-function loadEditorFromShipBlocks() {
-  for (const m of placedMeshes) editorScene.remove(m);
-  placedMeshes.length = 0;
-  occupied.clear();
-  clearSelection();
-
+function getMiningRate() {
+  let rate = 0;
   for (const b of shipBlocks) {
-    const mesh = createBlockMesh(b.type);
-    mesh.position.set(b.gx * GRID, b.gy * GRID, b.gz * GRID);
-    applyRotationState(mesh, b.rot);
-    editorScene.add(mesh);
-    placedMeshes.push(mesh);
-    occupied.add(`${b.gx},${b.gy},${b.gz}`);
-  }
+
+[3 lines collapsed]
+
+  return rate;
 }
-
-let editorYaw = 0.8, editorPitch = 0.4, editorDist = 60;
-const EDITOR_ZOOM_MIN = 15, EDITOR_ZOOM_MAX = 200;
-
-function updateEditorCamera() {
-  const offset = new THREE.Vector3(
-    Math.sin(editorYaw) * Math.cos(editorPitch),
-    Math.sin(editorPitch),
-    Math.cos(editorYaw) * Math.cos(editorPitch)
-  ).multiplyScalar(editorDist);
-  editorCamera.position.copy(offset);
-  editorCamera.lookAt(0, 0, 0);
+function findNearestMineableMoon() {
+function setMiningStatus(text, active) {
+  if (!miningStatusEl) return;
+  miningStatusEl.textContent = text;
+  miningStatusEl.classList.toggle("active", !!active);
 }
-
-// ============================================================
-// INPUT
-// ============================================================
-const keys = {};
-let editorOpen = false;
-let dragging = false;
-let mouseLocked = false;
-let lastX = 0, lastY = 0;
-
-window.addEventListener("keydown", (e) => {
-  const k = e.key.toLowerCase();
-  keys[k] = true;
-
-  if (k === "e" && !e.repeat) toggleEditor();
-  if (k === "c" && !e.repeat && !editorOpen) toggleMouseLock();
-  if (k === "f" && !e.repeat && !editorOpen) fireWeapons();
-
-  if (editorOpen) {
-    if (k === "r" && !e.repeat) {
-      ghostRotation = (ghostRotation + 1) % ROTATION_STATES.length;
-      rebuildGhostMesh();
+function findNearestMoon() {
+  let best = null;
+  let bestDist = Infinity;
+  for (const moon of moons) {
+    if (moon.remaining <= 0) continue;
+    if (!moon.active || moon.remaining <= 0) continue;
+    getMoonWorldPos(moon, _moonWorld);
+    const dist = ship.position.distanceTo(_moonWorld) - moon.radius;
+    const dist = ship.position.distanceTo(_moonWorld);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = moon;
     }
-    if (k === "q" && !e.repeat) deselectPlacingBlock();
-    if (k === "x" && !e.repeat) deleteSelectedBlock();
   }
-});
-window.addEventListener("keyup", (e) => keys[e.key.toLowerCase()] = false);
-
-function toggleEditor() {
-  editorOpen = !editorOpen;
-
-  const editorUiEl = document.getElementById("editor-ui");
-  const editorTitleEl = document.getElementById("editor-title");
-  const controlsBoxEl = document.getElementById("controls-box");
-  if (!editorUiEl || !editorTitleEl || !controlsBoxEl) {
-    console.error("Editor UI elements not found - check index.html has #editor-ui, #editor-title, #controls-box");
+  if (!best || bestDist > MINE_RANGE_PAD) return null;
+  return best;
+}
+function hideMiningLaser() {
+  miningLaserBeam.visible = false;
+  miningLaserGlow.visible = false;
+}
+function updateMiningLaserVisual() {
+  if (miningPhase !== "mining" || !miningMoon || !miningMoon.active || !hasMiningLaser()) {
+    hideMiningLaser();
     return;
   }
-
-  editorUiEl.style.display = editorOpen ? "block" : "none";
-  editorTitleEl.style.display = editorOpen ? "block" : "none";
-  controlsBoxEl.style.display = editorOpen ? "none" : "block";
-
-  if (editorOpen) {
-    if (mouseLocked) document.exitPointerLock();
-    loadEditorFromShipBlocks();
-    updateEditorCamera();
-  } else {
-    clearSelection();
-    rebuildShipFromBlocks();
-  }
-}
-
-window.addEventListener("mousedown", (e) => {
-  if (e.button === 2) { dragging = true; lastX = e.clientX; lastY = e.clientY; }
-  if (editorOpen && e.button === 0) {
-    if (selectedType !== null) {
-      placeBlock();
-    } else {
-      trySelectBlock(e.clientX, e.clientY);
-    }
-  }
-});
-window.addEventListener("mouseup", (e) => {
-  if (e.button === 2) dragging = false;
-});
-window.addEventListener("contextmenu", (e) => e.preventDefault());
-
-const FLIGHT_ZOOM_MIN = 12, FLIGHT_ZOOM_MAX = 250;
-window.addEventListener("wheel", (e) => {
-  const zoomStep = e.deltaY * 0.05;
-  if (editorOpen) {
-    editorDist = Math.max(EDITOR_ZOOM_MIN, Math.min(EDITOR_ZOOM_MAX, editorDist + zoomStep));
-  } else {
-    camDistance = Math.max(FLIGHT_ZOOM_MIN, Math.min(FLIGHT_ZOOM_MAX, camDistance + zoomStep));
-  }
-}, { passive: true });
-
-function toggleMouseLock() {
-  if (!mouseLocked) {
-    renderer.domElement.requestPointerLock().catch(() => {});
-  } else {
-    document.exitPointerLock();
-  }
-}
-document.addEventListener("pointerlockchange", () => {
-  mouseLocked = document.pointerLockElement === renderer.domElement;
-});
-
-window.addEventListener("mousemove", (e) => {
-  if (editorOpen) {
-    if (dragging) {
-      const dx = e.clientX - lastX;
-      const dy = e.clientY - lastY;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      editorYaw -= dx * 0.006;
-      editorPitch = Math.max(-1.3, Math.min(1.3, editorPitch + dy * 0.006));
-    }
-    updateGhost(e.clientX, e.clientY);
+  getMoonWorldPos(miningMoon, _laserTo);
+  _laserFrom.copy(ship.position);
+  _laserDir.subVectors(_laserTo, _laserFrom);
+  const dist = _laserDir.length();
+  if (dist < 0.1) {
+    hideMiningLaser();
     return;
   }
-
-  let dx, dy;
-  if (mouseLocked) {
-    dx = e.movementX;
-    dy = e.movementY;
-  } else if (dragging) {
-    dx = e.clientX - lastX;
-    dy = e.clientY - lastY;
-    lastX = e.clientX;
-    lastY = e.clientY;
-  } else {
+  _laserDir.multiplyScalar(1 / dist);
+  const mid = _laserFrom.clone().addScaledVector(_laserDir, dist * 0.5);
+  miningLaserBeam.position.copy(mid);
+  miningLaserGlow.position.copy(mid);
+  miningLaserBeam.scale.set(1, dist, 1);
+  miningLaserGlow.scale.set(1, dist, 1);
+  miningLaserBeam.quaternion.setFromUnitVectors(_laserUp, _laserDir);
+  miningLaserGlow.quaternion.copy(miningLaserBeam.quaternion);
+  miningLaserBeam.visible = true;
+  miningLaserGlow.visible = true;
+}
+function stopMining(reason) {
+  isMining = false;
+  miningPhase = "idle";
+  miningMoon = null;
+  if (miningStatusEl) {
+    miningStatusEl.textContent = reason || "Mining idle — approach a moon & press M";
+    miningStatusEl.classList.remove("active");
+  }
+  hideMiningLaser();
+  setMiningStatus(reason || "Tap M to focus nearest moon · hold M to approach", false);
+}
+function startMining() {
+function beginMining(moon) {
+  if (!hasMiningGear()) {
+    if (miningStatusEl) {
+      miningStatusEl.textContent = "Need a Mining Drill or Mining Laser";
+      miningStatusEl.classList.remove("active");
+    }
+    setMiningStatus("Need a Mining Drill or Mining Laser", false);
+    miningPhase = "idle";
+    miningMoon = null;
     return;
   }
-
-  camYaw -= dx * 0.005;
-  camPitch += dy * 0.005;
-  camPitch = Math.max(-1.4, Math.min(1.4, camPitch));
-});
-
-// ============================================================
-// FLIGHT MOVEMENT + CAMERA
-// ============================================================
-const baseMoveSpeed = 1.0;
-const speedPerEnginePercent = 0.20;
-const turnLerp = 0.12;
-const tempFacingObj = new THREE.Object3D();
-
-let camDistance = 40;
-let camYaw = 0;
-let camPitch = 0.3;
-
-function getCameraForward() {
-  return new THREE.Vector3(
-    -Math.sin(camYaw) * Math.cos(camPitch),
-    -Math.sin(camPitch),
-    -Math.cos(camYaw) * Math.cos(camPitch)
-  ).normalize();
+  const moon = findNearestMineableMoon();
+  miningPhase = "mining";
+  miningMoon = moon;
+  const res = resourceById(moon.resourceId);
+  setMiningStatus(`Mining ${moon.name} · ${res ? res.label : moon.resourceId} — locked until empty`, true);
 }
-
-function getShipForward() {
-  return new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
-}
-
-function getCurrentMoveSpeed() {
-  const engineCount = getEngineCount();
-  return baseMoveSpeed * (1 + speedPerEnginePercent * engineCount);
-}
-
-function updateMovement() {
-  const moveSpeed = getCurrentMoveSpeed();
-  const forward = getCameraForward();
-  const worldUp = new THREE.Vector3(0, 1, 0);
-  const right = new THREE.Vector3().crossVectors(forward, worldUp).normalize();
-
-  const moveVec = new THREE.Vector3();
-  if (keys["w"]) moveVec.add(forward);
-  if (keys["s"]) moveVec.addScaledVector(forward, -1);
-  if (keys["a"]) moveVec.addScaledVector(right, -1);
-  if (keys["d"]) moveVec.add(right);
-
-  if (moveVec.lengthSq() > 0) {
-    moveVec.normalize().multiplyScalar(moveSpeed);
-    ship.position.add(moveVec);
-
-    const targetDir = mouseLocked ? forward : moveVec.clone().normalize();
-
-    tempFacingObj.position.copy(ship.position);
-    tempFacingObj.lookAt(ship.position.clone().add(targetDir));
-    ship.quaternion.slerp(tempFacingObj.quaternion, turnLerp);
-  }
-}
-
-function updateCamera() {
-  const offset = new THREE.Vector3(
-    Math.sin(camYaw) * Math.cos(camPitch),
-    Math.sin(camPitch),
-    Math.cos(camYaw) * Math.cos(camPitch)
-  ).multiplyScalar(camDistance);
-
-  camera.position.copy(ship.position).add(offset);
-  camera.lookAt(ship.position);
-}
-
-// ============================================================
-// WEAPONS ("F" to fire)
-// Each weapon fires along the direction IT is actually facing -
-// combining its own block rotation with the ship's current orientation -
-// instead of always firing along the ship's nose direction.
-// ============================================================
-const projectiles = [];
-const projectileSpeed = 6;
-const projectileLife = 90;
-
-function getWeaponWorldDirection(block) {
-  const r = ROTATION_STATES[block.rot];
-  const localDir = new THREE.Vector3(0, 0, -1);
-  localDir.applyEuler(new THREE.Euler(r.x, r.y, r.z)); // the block's own rotation
-  localDir.applyQuaternion(ship.quaternion);            // then the ship's overall facing
-  return localDir.multiplyScalar(-1);                   // match travel-direction convention used elsewhere
-}
-
-function fireWeapons() {
-  const weapons = getWeaponBlocks();
-  if (weapons.length === 0) return;
-
-  ship.updateMatrixWorld(true);
-
-  for (const w of weapons) {
-    const localPos = new THREE.Vector3(w.gx * GRID, w.gy * GRID, w.gz * GRID);
-    const worldPos = localPos.applyMatrix4(ship.matrixWorld);
-    const direction = getWeaponWorldDirection(w);
-
-    const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.6, 8, 8),
-      new THREE.MeshBasicMaterial({ color: 0xff5555 })
-    );
-    mesh.position.copy(worldPos);
-    scene.add(mesh);
-
-    projectiles.push({
-      mesh,
-      velocity: direction.multiplyScalar(projectileSpeed),
-      life: projectileLife
-    });
-  }
-}
-
-function updateProjectiles() {
-  for (let i = projectiles.length - 1; i >= 0; i--) {
-    const p = projectiles[i];
-    p.mesh.position.add(p.velocity);
-    p.life--;
-    if (p.life <= 0) {
-      scene.remove(p.mesh);
-      projectiles.splice(i, 1);
+function onMiningKeyDown() {
+  // Once mining has started, M does nothing (cannot cancel)
+  if (miningPhase === "mining") return;
+  const moon = findNearestMoon();
+  if (!moon) {
+    if (miningStatusEl) {
+      miningStatusEl.textContent = "No moon in range (or depleted)";
+      miningStatusEl.classList.remove("active");
     }
+    setMiningStatus("No active moons available", false);
+    return;
   }
-}
-
-// ============================================================
-// MAIN LOOP
-// ============================================================
-function animate() {
-  requestAnimationFrame(animate);
-
-  if (editorOpen) {
-    updateEditorCamera();
-    renderer.render(editorScene, editorCamera);
-  } else {
-    updateMovement();
-    updateCamera();
-    updateProjectiles();
-    renderer.render(scene, camera);
+  if (getCargoFree() <= 0) {
+    if (miningStatusEl) {
+      miningStatusEl.textContent = "Cargo full — add Ore Holds";
+      miningStatusEl.classList.remove("active");
+    }
+    return;
   }
-}
-animate();
+  isMining = true;
