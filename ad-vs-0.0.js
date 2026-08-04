@@ -73,6 +73,7 @@ scene.add(sun);
 // BLOCK TYPES
 // ============================================================
 const GRID = 4;
+const GRID_HALF_RANGE = 20; // max cells from center in any direction (keeps blocks from landing "far away")
 
 function mat(color) { return new THREE.MeshStandardMaterial({ color, metalness: 0.3, roughness: 0.5 }); }
 
@@ -108,6 +109,13 @@ function rebuildShipFromBlocks() {
   }
 }
 
+function getEngineCount() {
+  return shipBlocks.filter(b => b.type === "engine").length;
+}
+function getWeaponBlocks() {
+  return shipBlocks.filter(b => b.type === "weapon");
+}
+
 // ============================================================
 // SHIP EDITOR SCENE
 // ============================================================
@@ -117,27 +125,40 @@ const editorLight = new THREE.DirectionalLight(0xffffff, 1.1);
 editorLight.position.set(100, 200, 100);
 editorScene.add(editorLight);
 
-const editorGrid = new THREE.GridHelper(160, 40, 0x3cf0c5, 0x334455);
+const editorGrid = new THREE.GridHelper(GRID_HALF_RANGE * 2 * GRID, GRID_HALF_RANGE * 2, 0x3cf0c5, 0x334455);
 editorGrid.position.y = -GRID / 2;
 editorScene.add(editorGrid);
 
+// Click-plane sized to MATCH the visible grid exactly (this was the source of stray far-away blocks)
+const basePlaneSize = GRID_HALF_RANGE * 2 * GRID;
 const basePlane = new THREE.Mesh(
-  new THREE.PlaneGeometry(400, 400),
+  new THREE.PlaneGeometry(basePlaneSize, basePlaneSize),
   new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.0 })
 );
 basePlane.rotation.x = -Math.PI / 2;
 basePlane.position.y = -GRID / 2;
 editorScene.add(basePlane);
 
+// Arrow showing which way the ship will face on exit (ship's nose direction = local -Z)
+const facingArrow = new THREE.ArrowHelper(
+  new THREE.Vector3(0, 0, -1),
+  new THREE.Vector3(0, 0, 0),
+  24,
+  0xffe14d,
+  6,
+  4
+);
+editorScene.add(facingArrow);
+
 const placedMeshes = [];
 const occupied = new Set();
 
 let selectedType = BLOCK_TYPES[0].id;
 let ghostRotation = 0;
-let ghostCell = null;
+let ghostCell = { gx: 0, gy: 0, gz: 0, key: "0,0,0" }; // default so the ghost is visible immediately
 
-// Ghost preview: a group we clear and refill, instead of swapping object references
 const ghostGroup = new THREE.Group();
+ghostGroup.position.set(0, 0, 0);
 editorScene.add(ghostGroup);
 
 function rebuildGhostMesh() {
@@ -148,6 +169,7 @@ function rebuildGhostMesh() {
   mesh.material.opacity = 0.5;
   mesh.rotation.y = ghostRotation * (Math.PI / 2);
   ghostGroup.add(mesh);
+  ghostGroup.visible = !occupied.has(ghostCell.key);
 }
 rebuildGhostMesh();
 
@@ -173,6 +195,10 @@ BLOCK_TYPES.forEach(bt => {
 const raycaster = new THREE.Raycaster();
 const mouseNDC = new THREE.Vector2();
 
+function clampCell(v) {
+  return Math.max(-GRID_HALF_RANGE, Math.min(GRID_HALF_RANGE, v));
+}
+
 function updateGhost(clientX, clientY) {
   mouseNDC.x = (clientX / window.innerWidth) * 2 - 1;
   mouseNDC.y = -(clientY / window.innerHeight) * 2 + 1;
@@ -185,18 +211,17 @@ function updateGhost(clientX, clientY) {
     const hit = hits[0];
     const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
     const point = hit.point.clone().add(normal.multiplyScalar(GRID / 2));
-    const gx = Math.round(point.x / GRID);
-    const gy = Math.round(point.y / GRID);
-    const gz = Math.round(point.z / GRID);
+    const gx = clampCell(Math.round(point.x / GRID));
+    const gy = clampCell(Math.round(point.y / GRID));
+    const gz = clampCell(Math.round(point.z / GRID));
     const key = `${gx},${gy},${gz}`;
 
     ghostCell = { gx, gy, gz, key };
     ghostGroup.position.set(gx * GRID, gy * GRID, gz * GRID);
     ghostGroup.visible = !occupied.has(key);
-  } else {
-    ghostCell = null;
-    ghostGroup.visible = false;
   }
+  // If no hit, keep the last valid ghostCell instead of hiding it -
+  // avoids the "invisible while rotating" confusion from before.
 }
 
 function placeBlock() {
@@ -259,6 +284,7 @@ window.addEventListener("keydown", (e) => {
     ghostRotation = (ghostRotation + 1) % 4;
     rebuildGhostMesh();
   }
+  if (k === "f" && !e.repeat && !editorOpen) fireWeapons();
 });
 window.addEventListener("keyup", (e) => keys[e.key.toLowerCase()] = false);
 
@@ -269,7 +295,7 @@ function toggleEditor() {
   const editorTitleEl = document.getElementById("editor-title");
   const controlsBoxEl = document.getElementById("controls-box");
   if (!editorUiEl || !editorTitleEl || !controlsBoxEl) {
-    console.error("Editor UI elements not found - check that index.html includes #editor-ui, #editor-title, #controls-box");
+    console.error("Editor UI elements not found - check index.html has #editor-ui, #editor-title, #controls-box");
     return;
   }
 
@@ -308,7 +334,6 @@ document.addEventListener("pointerlockchange", () => {
 
 window.addEventListener("mousemove", (e) => {
   if (editorOpen) {
-    updateGhost(e.clientX, e.clientY);
     if (dragging) {
       const dx = e.clientX - lastX;
       const dy = e.clientY - lastY;
@@ -317,6 +342,7 @@ window.addEventListener("mousemove", (e) => {
       editorYaw -= dx * 0.006;
       editorPitch = Math.max(-1.3, Math.min(1.3, editorPitch + dy * 0.006));
     }
+    updateGhost(e.clientX, e.clientY);
     return;
   }
 
@@ -341,7 +367,8 @@ window.addEventListener("mousemove", (e) => {
 // ============================================================
 // FLIGHT MOVEMENT + CAMERA
 // ============================================================
-const moveSpeed = 1.2;
+const baseMoveSpeed = 1.0;
+const speedPerEngine = 0.25;
 const turnLerp = 0.12;
 const tempFacingObj = new THREE.Object3D();
 
@@ -357,7 +384,13 @@ function getCameraForward() {
   ).normalize();
 }
 
+function getShipForward() {
+  return new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
+}
+
 function updateMovement() {
+  const moveSpeed = baseMoveSpeed + getEngineCount() * speedPerEngine;
+
   if (mouseLocked) {
     const forward = getCameraForward();
     const worldUp = new THREE.Vector3(0, 1, 0);
@@ -375,7 +408,7 @@ function updateMovement() {
       ship.quaternion.slerp(tempFacingObj.quaternion, turnLerp);
     }
   } else {
-    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
+    const forward = getShipForward();
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(ship.quaternion);
 
     if (keys["w"]) ship.position.addScaledVector(forward, -moveSpeed);
@@ -397,16 +430,63 @@ function updateCamera() {
 }
 
 // ============================================================
+// WEAPONS ("F" to fire)
+// ============================================================
+const projectiles = []; // {mesh, velocity, life}
+const projectileSpeed = 6;
+const projectileLife = 90; // frames
+
+function fireWeapons() {
+  const weapons = getWeaponBlocks();
+  if (weapons.length === 0) return;
+
+  ship.updateMatrixWorld(true);
+  const forward = getShipForward();
+
+  for (const w of weapons) {
+    const localPos = new THREE.Vector3(w.gx * GRID, w.gy * GRID, w.gz * GRID);
+    const worldPos = localPos.applyMatrix4(ship.matrixWorld);
+
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.6, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xff5555 })
+    );
+    mesh.position.copy(worldPos);
+    scene.add(mesh);
+
+    projectiles.push({
+      mesh,
+      velocity: forward.clone().multiplyScalar(-projectileSpeed), // forward is (0,0,-1)-based, invert to match travel direction
+      life: projectileLife
+    });
+  }
+}
+
+function updateProjectiles() {
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const p = projectiles[i];
+    p.mesh.position.add(p.velocity);
+    p.life--;
+    if (p.life <= 0) {
+      scene.remove(p.mesh);
+      projectiles.splice(i, 1);
+    }
+  }
+}
+
+// ============================================================
 // MAIN LOOP
 // ============================================================
 function animate() {
   requestAnimationFrame(animate);
 
   if (editorOpen) {
+    updateEditorCamera();
     renderer.render(editorScene, editorCamera);
   } else {
     updateMovement();
     updateCamera();
+    updateProjectiles();
     renderer.render(scene, camera);
   }
 }
