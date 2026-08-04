@@ -5,6 +5,7 @@
   <style>
     body { margin: 0; overflow: hidden; background: #000; }
     canvas { display: block; }
+
     #controls-box {
       position: fixed;
       bottom: 16px;
@@ -21,6 +22,52 @@
       user-select: none;
     }
     #controls-box b { color: #3cf0c5; }
+
+    #editor-ui {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 220px;
+      height: 100%;
+      background: rgba(8, 10, 18, 0.9);
+      border-right: 1px solid rgba(255,255,255,0.15);
+      color: #cfe8ff;
+      font-family: monospace;
+      padding: 16px;
+      box-sizing: border-box;
+      z-index: 10;
+    }
+    #editor-ui h2 { font-size: 15px; color: #3cf0c5; margin: 0 0 12px 0; }
+    #editor-ui .hint { font-size: 11px; opacity: 0.7; margin-bottom: 14px; line-height: 1.5; }
+    .block-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      color: #cfe8ff;
+      font-family: monospace;
+      font-size: 13px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .block-btn:hover { background: rgba(255,255,255,0.12); }
+    .block-btn.selected { border-color: #3cf0c5; background: rgba(60,240,197,0.15); }
+    .swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+    #editor-title {
+      display: none;
+      position: fixed;
+      top: 16px; left: 240px;
+      color: #cfe8ff;
+      font-family: monospace;
+      font-size: 13px;
+      z-index: 10;
+      opacity: 0.8;
+    }
   </style>
 </head>
 <body>
@@ -28,8 +75,17 @@
     <b>W A S D</b> — move / strafe<br>
     <b>Hold RMB + move</b> — rotate camera<br>
     <b>C</b> — toggle mouse look (ship flies where you look)<br>
+    <b>E</b> — open ship editor<br>
     <b>Esc</b> — release mouse lock
   </div>
+
+  <div id="editor-ui">
+    <h2>SHIP EDITOR</h2>
+    <div class="hint">Click a block, then click the grid to place it.<br><b>R</b> rotates the block.<br><b>E</b> exits and saves your ship.</div>
+    <div id="block-list"></div>
+  </div>
+  <div id="editor-title">Hold RMB + move to rotate view &nbsp;|&nbsp; R = rotate block &nbsp;|&nbsp; E = exit &amp; save</div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="ad-vs-0.0.js"></script>
 </body>
