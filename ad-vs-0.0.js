@@ -75,24 +75,62 @@ scene.add(sun);
 const GRID = 4;
 const GRID_HALF_RANGE = 20;
 
+// 6 rotation states: 4 flat spins around the vertical axis, plus tilt-up and tilt-down
+// around a horizontal axis - lets you mount things facing sideways OR up/down.
+const ROTATION_STATES = [
+  { x: 0, y: 0, z: 0 },
+  { x: 0, y: Math.PI / 2, z: 0 },
+  { x: 0, y: Math.PI, z: 0 },
+  { x: 0, y: (3 * Math.PI) / 2, z: 0 },
+  { x: Math.PI / 2, y: 0, z: 0 },   // tilted to face up
+  { x: -Math.PI / 2, y: 0, z: 0 }   // tilted to face down
+];
+function applyRotationState(obj, idx) {
+  const r = ROTATION_STATES[idx];
+  obj.rotation.set(r.x, r.y, r.z);
+}
+
 function mat(color) { return new THREE.MeshStandardMaterial({ color, metalness: 0.3, roughness: 0.5 }); }
 
+function withMarker(shapeMesh, markerZOffset) {
+  const group = new THREE.Group();
+  group.add(shapeMesh);
+  const marker = new THREE.Mesh(
+    new THREE.ConeGeometry(0.35, 0.9, 6),
+    new THREE.MeshBasicMaterial({ color: 0xffffff })
+  );
+  marker.position.set(0, 0, markerZOffset);
+  marker.rotation.x = -Math.PI / 2;
+  group.add(marker);
+  return group;
+}
+
 const BLOCK_TYPES = [
-  { id: "cube",     label: "Hull Cube",  color: 0x8fa3b8, make: () => new THREE.Mesh(new THREE.BoxGeometry(3.6, 3.6, 3.6), mat(0x8fa3b8)) },
-  { id: "cone",     label: "Nose Cone",  color: 0x3cf0c5, make: () => new THREE.Mesh(new THREE.ConeGeometry(1.8, 3.6, 12), mat(0x3cf0c5)) },
-  { id: "sphere",   label: "Sphere Pod", color: 0xd7c15a, make: () => new THREE.Mesh(new THREE.SphereGeometry(1.8, 16, 16), mat(0xd7c15a)) },
-  { id: "cylinder", label: "Cylinder",   color: 0xb0b0b0, make: () => new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 3.6, 16), mat(0xb0b0b0)) },
-  { id: "pyramid",  label: "Wing Wedge", color: 0x7a8ccf, make: () => new THREE.Mesh(new THREE.ConeGeometry(2.2, 3.6, 4), mat(0x7a8ccf)) },
-  { id: "engine",   label: "Engine",     color: 0xff8c3c, make: () => new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.2, 3.6), mat(0xff8c3c)) },
+  { id: "cube",     label: "Hull Cube",  color: 0x8fa3b8, make: () => withMarker(new THREE.Mesh(new THREE.BoxGeometry(3.6, 3.6, 3.6), mat(0x8fa3b8)), -2.2) },
+  { id: "cone",     label: "Nose Cone",  color: 0x3cf0c5, make: () => withMarker(new THREE.Mesh(new THREE.ConeGeometry(1.8, 3.6, 12), mat(0x3cf0c5)), -2.2) },
+  { id: "sphere",   label: "Sphere Pod", color: 0xd7c15a, make: () => withMarker(new THREE.Mesh(new THREE.SphereGeometry(1.8, 16, 16), mat(0xd7c15a)), -2.2) },
+  { id: "cylinder", label: "Cylinder",   color: 0xb0b0b0, make: () => withMarker(new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 3.6, 16), mat(0xb0b0b0)), -2.2) },
+  { id: "pyramid",  label: "Wing Wedge", color: 0x7a8ccf, make: () => withMarker(new THREE.Mesh(new THREE.ConeGeometry(2.2, 3.6, 4), mat(0x7a8ccf)), -2.4) },
+  { id: "engine",   label: "Engine",     color: 0xff8c3c, make: () => withMarker(new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.2, 3.6), mat(0xff8c3c)), -2.2) },
   { id: "weapon",   label: "Weapon",     color: 0xe64545, make: () => {
       const g = new THREE.CylinderGeometry(0.6, 0.6, 3.8, 10);
       g.rotateX(Math.PI / 2);
-      return new THREE.Mesh(g, mat(0xe64545));
+      return withMarker(new THREE.Mesh(g, mat(0xe64545)), -2.4);
     } }
 ];
 function blockTypeById(id) { return BLOCK_TYPES.find(b => b.id === id); }
 
-let shipBlocks = []; // [{type, gx, gy, gz, rot}] - single source of truth for the ship
+function createBlockMesh(typeId) {
+  const group = blockTypeById(typeId).make();
+  group.userData.isBlockRoot = true;
+  return group;
+}
+function findBlockRoot(obj) {
+  while (obj && !(obj.userData && obj.userData.isBlockRoot)) obj = obj.parent;
+  return obj;
+}
+
+let shipBlocks = []; // [{type, gx, gy, gz, rot}] - rot is an index into ROTATION_STATES
 
 function rebuildShipFromBlocks() {
   while (ship.children.length) ship.remove(ship.children[0]);
@@ -102,9 +140,9 @@ function rebuildShipFromBlocks() {
     return;
   }
   for (const b of shipBlocks) {
-    const mesh = blockTypeById(b.type).make();
+    const mesh = createBlockMesh(b.type);
     mesh.position.set(b.gx * GRID, b.gy * GRID, b.gz * GRID);
-    mesh.rotation.y = b.rot * (Math.PI / 2);
+    applyRotationState(mesh, b.rot);
     ship.add(mesh);
   }
 }
@@ -138,7 +176,6 @@ basePlane.rotation.x = -Math.PI / 2;
 basePlane.position.y = -GRID / 2;
 editorScene.add(basePlane);
 
-// Arrow showing the ship's facing direction on exit (flipped to match actual forward)
 const facingArrow = new THREE.ArrowHelper(
   new THREE.Vector3(0, 0, 1),
   new THREE.Vector3(0, 0, 0),
@@ -152,11 +189,11 @@ editorScene.add(facingArrow);
 const placedMeshes = [];
 const occupied = new Set();
 
-let selectedType = BLOCK_TYPES[0].id; // null = deselected (Q was pressed)
-let ghostRotation = 0;
+let selectedType = BLOCK_TYPES[0].id;
+let ghostRotation = 0; // index into ROTATION_STATES
 let ghostCell = { gx: 0, gy: 0, gz: 0, key: "0,0,0" };
 
-let selectedBlockIndex = null; // index into placedMeshes/shipBlocks when a placed block is selected
+let selectedBlockIndex = null;
 let highlightHelper = null;
 
 const ghostGroup = new THREE.Group();
@@ -171,22 +208,16 @@ function rebuildGhostMesh() {
     return;
   }
 
-  const mesh = blockTypeById(selectedType).make();
-  mesh.material = mesh.material.clone();
-  mesh.material.transparent = true;
-  mesh.material.opacity = 0.5;
-  ghostGroup.add(mesh);
-
-  // Small orientation indicator so rotation is always visible, even on symmetric blocks like the cube
-  const indicator = new THREE.Mesh(
-    new THREE.ConeGeometry(0.4, 1.2, 8),
-    new THREE.MeshBasicMaterial({ color: 0xffe14d })
-  );
-  indicator.position.set(0, 0, -2.6);
-  indicator.rotation.x = -Math.PI / 2;
-  ghostGroup.add(indicator);
-
-  ghostGroup.rotation.y = ghostRotation * (Math.PI / 2);
+  const preview = blockTypeById(selectedType).make();
+  preview.traverse((obj) => {
+    if (obj.isMesh) {
+      obj.material = obj.material.clone();
+      obj.material.transparent = true;
+      obj.material.opacity = 0.5;
+    }
+  });
+  ghostGroup.add(preview);
+  applyRotationState(ghostGroup, ghostRotation);
   ghostGroup.visible = !occupied.has(ghostCell.key);
 }
 rebuildGhostMesh();
@@ -203,7 +234,6 @@ function deselectPlacingBlock() {
   rebuildGhostMesh();
 }
 
-// Build the palette UI
 const blockListEl = document.getElementById("block-list");
 BLOCK_TYPES.forEach(bt => {
   const btn = document.createElement("button");
@@ -225,14 +255,14 @@ function clampCell(v) {
 }
 
 function updateGhost(clientX, clientY) {
-  if (selectedType === null) return; // nothing to preview while deselected
+  if (selectedType === null) return;
 
   mouseNDC.x = (clientX / window.innerWidth) * 2 - 1;
   mouseNDC.y = -(clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouseNDC, editorCamera);
 
   const targets = [basePlane, ...placedMeshes];
-  const hits = raycaster.intersectObjects(targets);
+  const hits = raycaster.intersectObjects(targets, true);
 
   if (hits.length > 0) {
     const hit = hits[0];
@@ -254,9 +284,9 @@ function placeBlock() {
   if (!ghostCell || occupied.has(ghostCell.key)) return;
   const { gx, gy, gz, key } = ghostCell;
 
-  const mesh = blockTypeById(selectedType).make();
+  const mesh = createBlockMesh(selectedType);
   mesh.position.set(gx * GRID, gy * GRID, gz * GRID);
-  mesh.rotation.y = ghostRotation * (Math.PI / 2);
+  applyRotationState(mesh, ghostRotation);
   editorScene.add(mesh);
   placedMeshes.push(mesh);
   occupied.add(key);
@@ -269,13 +299,16 @@ function trySelectBlock(clientX, clientY) {
   mouseNDC.y = -(clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouseNDC, editorCamera);
 
-  const hits = raycaster.intersectObjects(placedMeshes);
+  const hits = raycaster.intersectObjects(placedMeshes, true);
   if (hits.length > 0) {
-    const idx = placedMeshes.indexOf(hits[0].object);
-    selectBlock(idx);
-  } else {
-    clearSelection();
+    const root = findBlockRoot(hits[0].object);
+    const idx = placedMeshes.indexOf(root);
+    if (idx !== -1) {
+      selectBlock(idx);
+      return;
+    }
   }
+  clearSelection();
 }
 
 function selectBlock(idx) {
@@ -313,9 +346,9 @@ function loadEditorFromShipBlocks() {
   clearSelection();
 
   for (const b of shipBlocks) {
-    const mesh = blockTypeById(b.type).make();
+    const mesh = createBlockMesh(b.type);
     mesh.position.set(b.gx * GRID, b.gy * GRID, b.gz * GRID);
-    mesh.rotation.y = b.rot * (Math.PI / 2);
+    applyRotationState(mesh, b.rot);
     editorScene.add(mesh);
     placedMeshes.push(mesh);
     occupied.add(`${b.gx},${b.gy},${b.gz}`);
@@ -353,7 +386,7 @@ window.addEventListener("keydown", (e) => {
 
   if (editorOpen) {
     if (k === "r" && !e.repeat) {
-      ghostRotation = (ghostRotation + 1) % 4;
+      ghostRotation = (ghostRotation + 1) % ROTATION_STATES.length;
       rebuildGhostMesh();
     }
     if (k === "q" && !e.repeat) deselectPlacingBlock();
@@ -447,6 +480,15 @@ window.addEventListener("mousemove", (e) => {
 
 // ============================================================
 // FLIGHT MOVEMENT + CAMERA
+//
+// Movement is always relative to the camera's current direction.
+// But ship FACING differs by mode:
+//   - Mouse-lock (C):    ship's nose always matches the camera's look
+//                         direction exactly - "fly where you look."
+//   - Free-cam (RMB):    camera orbits completely independently (stays
+//                         pointed wherever you left it), and the ship
+//                         instead turns to face whichever direction it's
+//                         actually moving (its velocity vector).
 // ============================================================
 const baseMoveSpeed = 1.0;
 const speedPerEngine = 0.25;
@@ -471,31 +513,26 @@ function getShipForward() {
 
 function updateMovement() {
   const moveSpeed = baseMoveSpeed + getEngineCount() * speedPerEngine;
+  const forward = getCameraForward();
+  const worldUp = new THREE.Vector3(0, 1, 0);
+  const right = new THREE.Vector3().crossVectors(forward, worldUp).normalize();
 
-  if (mouseLocked) {
-    const forward = getCameraForward();
-    const worldUp = new THREE.Vector3(0, 1, 0);
-    const right = new THREE.Vector3().crossVectors(forward, worldUp).normalize();
+  const moveVec = new THREE.Vector3();
+  if (keys["w"]) moveVec.add(forward);
+  if (keys["s"]) moveVec.addScaledVector(forward, -1);
+  if (keys["a"]) moveVec.addScaledVector(right, -1);
+  if (keys["d"]) moveVec.add(right);
 
-    let moved = false;
-    if (keys["w"]) { ship.position.addScaledVector(forward, moveSpeed); moved = true; }
-    if (keys["s"]) { ship.position.addScaledVector(forward, -moveSpeed); moved = true; }
-    if (keys["a"]) { ship.position.addScaledVector(right, -moveSpeed); moved = true; }
-    if (keys["d"]) { ship.position.addScaledVector(right, moveSpeed); moved = true; }
+  if (moveVec.lengthSq() > 0) {
+    moveVec.normalize().multiplyScalar(moveSpeed);
+    ship.position.add(moveVec);
 
-    if (moved) {
-      tempFacingObj.position.copy(ship.position);
-      tempFacingObj.lookAt(ship.position.clone().add(forward));
-      ship.quaternion.slerp(tempFacingObj.quaternion, turnLerp);
-    }
-  } else {
-    const forward = getShipForward();
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(ship.quaternion);
+    // Choose what the ship should turn to face, based on mode
+    const targetDir = mouseLocked ? forward : moveVec.clone().normalize();
 
-    if (keys["w"]) ship.position.addScaledVector(forward, -moveSpeed);
-    if (keys["s"]) ship.position.addScaledVector(forward, moveSpeed);
-    if (keys["a"]) ship.position.addScaledVector(right, moveSpeed);
-    if (keys["d"]) ship.position.addScaledVector(right, -moveSpeed);
+    tempFacingObj.position.copy(ship.position);
+    tempFacingObj.lookAt(ship.position.clone().add(targetDir));
+    ship.quaternion.slerp(tempFacingObj.quaternion, turnLerp);
   }
 }
 
