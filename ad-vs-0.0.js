@@ -73,7 +73,7 @@ scene.add(sun);
 // BLOCK TYPES
 // ============================================================
 const GRID = 4;
-const GRID_HALF_RANGE = 20; // max cells from center in any direction (keeps blocks from landing "far away")
+const GRID_HALF_RANGE = 20;
 
 function mat(color) { return new THREE.MeshStandardMaterial({ color, metalness: 0.3, roughness: 0.5 }); }
 
@@ -129,7 +129,6 @@ const editorGrid = new THREE.GridHelper(GRID_HALF_RANGE * 2 * GRID, GRID_HALF_RA
 editorGrid.position.y = -GRID / 2;
 editorScene.add(editorGrid);
 
-// Click-plane sized to MATCH the visible grid exactly (this was the source of stray far-away blocks)
 const basePlaneSize = GRID_HALF_RANGE * 2 * GRID;
 const basePlane = new THREE.Mesh(
   new THREE.PlaneGeometry(basePlaneSize, basePlaneSize),
@@ -139,9 +138,9 @@ basePlane.rotation.x = -Math.PI / 2;
 basePlane.position.y = -GRID / 2;
 editorScene.add(basePlane);
 
-// Arrow showing which way the ship will face on exit (ship's nose direction = local -Z)
+// Arrow showing the ship's facing direction on exit (flipped to match actual forward)
 const facingArrow = new THREE.ArrowHelper(
-  new THREE.Vector3(0, 0, -1),
+  new THREE.Vector3(0, 0, 1),
   new THREE.Vector3(0, 0, 0),
   24,
   0xffe14d,
@@ -153,9 +152,12 @@ editorScene.add(facingArrow);
 const placedMeshes = [];
 const occupied = new Set();
 
-let selectedType = BLOCK_TYPES[0].id;
+let selectedType = BLOCK_TYPES[0].id; // null = deselected (Q was pressed)
 let ghostRotation = 0;
-let ghostCell = { gx: 0, gy: 0, gz: 0, key: "0,0,0" }; // default so the ghost is visible immediately
+let ghostCell = { gx: 0, gy: 0, gz: 0, key: "0,0,0" };
+
+let selectedBlockIndex = null; // index into placedMeshes/shipBlocks when a placed block is selected
+let highlightHelper = null;
 
 const ghostGroup = new THREE.Group();
 ghostGroup.position.set(0, 0, 0);
@@ -163,18 +165,41 @@ editorScene.add(ghostGroup);
 
 function rebuildGhostMesh() {
   while (ghostGroup.children.length) ghostGroup.remove(ghostGroup.children[0]);
+
+  if (selectedType === null) {
+    ghostGroup.visible = false;
+    return;
+  }
+
   const mesh = blockTypeById(selectedType).make();
   mesh.material = mesh.material.clone();
   mesh.material.transparent = true;
   mesh.material.opacity = 0.5;
-  mesh.rotation.y = ghostRotation * (Math.PI / 2);
   ghostGroup.add(mesh);
+
+  // Small orientation indicator so rotation is always visible, even on symmetric blocks like the cube
+  const indicator = new THREE.Mesh(
+    new THREE.ConeGeometry(0.4, 1.2, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffe14d })
+  );
+  indicator.position.set(0, 0, -2.6);
+  indicator.rotation.x = -Math.PI / 2;
+  ghostGroup.add(indicator);
+
+  ghostGroup.rotation.y = ghostRotation * (Math.PI / 2);
   ghostGroup.visible = !occupied.has(ghostCell.key);
 }
 rebuildGhostMesh();
 
 function setSelectedType(id) {
   selectedType = id;
+  clearSelection();
+  rebuildGhostMesh();
+}
+
+function deselectPlacingBlock() {
+  selectedType = null;
+  document.querySelectorAll(".block-btn").forEach(b => b.classList.remove("selected"));
   rebuildGhostMesh();
 }
 
@@ -200,6 +225,8 @@ function clampCell(v) {
 }
 
 function updateGhost(clientX, clientY) {
+  if (selectedType === null) return; // nothing to preview while deselected
+
   mouseNDC.x = (clientX / window.innerWidth) * 2 - 1;
   mouseNDC.y = -(clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouseNDC, editorCamera);
@@ -220,11 +247,10 @@ function updateGhost(clientX, clientY) {
     ghostGroup.position.set(gx * GRID, gy * GRID, gz * GRID);
     ghostGroup.visible = !occupied.has(key);
   }
-  // If no hit, keep the last valid ghostCell instead of hiding it -
-  // avoids the "invisible while rotating" confusion from before.
 }
 
 function placeBlock() {
+  if (selectedType === null) return;
   if (!ghostCell || occupied.has(ghostCell.key)) return;
   const { gx, gy, gz, key } = ghostCell;
 
@@ -238,10 +264,53 @@ function placeBlock() {
   shipBlocks.push({ type: selectedType, gx, gy, gz, rot: ghostRotation });
 }
 
+function trySelectBlock(clientX, clientY) {
+  mouseNDC.x = (clientX / window.innerWidth) * 2 - 1;
+  mouseNDC.y = -(clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouseNDC, editorCamera);
+
+  const hits = raycaster.intersectObjects(placedMeshes);
+  if (hits.length > 0) {
+    const idx = placedMeshes.indexOf(hits[0].object);
+    selectBlock(idx);
+  } else {
+    clearSelection();
+  }
+}
+
+function selectBlock(idx) {
+  clearSelection();
+  selectedBlockIndex = idx;
+  highlightHelper = new THREE.BoxHelper(placedMeshes[idx], 0xffe14d);
+  editorScene.add(highlightHelper);
+}
+
+function clearSelection() {
+  if (highlightHelper) {
+    editorScene.remove(highlightHelper);
+    highlightHelper = null;
+  }
+  selectedBlockIndex = null;
+}
+
+function deleteSelectedBlock() {
+  if (selectedBlockIndex === null) return;
+  const mesh = placedMeshes[selectedBlockIndex];
+  const block = shipBlocks[selectedBlockIndex];
+
+  editorScene.remove(mesh);
+  occupied.delete(`${block.gx},${block.gy},${block.gz}`);
+  placedMeshes.splice(selectedBlockIndex, 1);
+  shipBlocks.splice(selectedBlockIndex, 1);
+
+  clearSelection();
+}
+
 function loadEditorFromShipBlocks() {
   for (const m of placedMeshes) editorScene.remove(m);
   placedMeshes.length = 0;
   occupied.clear();
+  clearSelection();
 
   for (const b of shipBlocks) {
     const mesh = blockTypeById(b.type).make();
@@ -280,11 +349,16 @@ window.addEventListener("keydown", (e) => {
 
   if (k === "e" && !e.repeat) toggleEditor();
   if (k === "c" && !e.repeat && !editorOpen) toggleMouseLock();
-  if (k === "r" && !e.repeat && editorOpen) {
-    ghostRotation = (ghostRotation + 1) % 4;
-    rebuildGhostMesh();
-  }
   if (k === "f" && !e.repeat && !editorOpen) fireWeapons();
+
+  if (editorOpen) {
+    if (k === "r" && !e.repeat) {
+      ghostRotation = (ghostRotation + 1) % 4;
+      rebuildGhostMesh();
+    }
+    if (k === "q" && !e.repeat) deselectPlacingBlock();
+    if (k === "x" && !e.repeat) deleteSelectedBlock();
+  }
 });
 window.addEventListener("keyup", (e) => keys[e.key.toLowerCase()] = false);
 
@@ -308,13 +382,20 @@ function toggleEditor() {
     loadEditorFromShipBlocks();
     updateEditorCamera();
   } else {
+    clearSelection();
     rebuildShipFromBlocks();
   }
 }
 
 window.addEventListener("mousedown", (e) => {
   if (e.button === 2) { dragging = true; lastX = e.clientX; lastY = e.clientY; }
-  if (editorOpen && e.button === 0) placeBlock();
+  if (editorOpen && e.button === 0) {
+    if (selectedType !== null) {
+      placeBlock();
+    } else {
+      trySelectBlock(e.clientX, e.clientY);
+    }
+  }
 });
 window.addEventListener("mouseup", (e) => {
   if (e.button === 2) dragging = false;
@@ -432,9 +513,9 @@ function updateCamera() {
 // ============================================================
 // WEAPONS ("F" to fire)
 // ============================================================
-const projectiles = []; // {mesh, velocity, life}
+const projectiles = [];
 const projectileSpeed = 6;
-const projectileLife = 90; // frames
+const projectileLife = 90;
 
 function fireWeapons() {
   const weapons = getWeaponBlocks();
@@ -456,7 +537,7 @@ function fireWeapons() {
 
     projectiles.push({
       mesh,
-      velocity: forward.clone().multiplyScalar(-projectileSpeed), // forward is (0,0,-1)-based, invert to match travel direction
+      velocity: forward.clone().multiplyScalar(-projectileSpeed),
       life: projectileLife
     });
   }
