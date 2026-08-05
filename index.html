@@ -4,19 +4,21 @@
   <title>Absolute Dominion</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <style>
     :root {
       --hud-cyan: #3cf0c5;
       --hud-amber: #ffc857;
       --hud-red: #ff4d5a;
       --hud-blue: #7ec8ff;
-      --panel: rgba(4, 10, 18, 0.82);
-      --panel-edge: rgba(60, 240, 197, 0.35);
-      --text: #d7ecff;
+      --hud-violet: #9b7bff;
+      --panel: rgba(3, 8, 16, 0.88);
+      --panel-edge: rgba(60, 240, 197, 0.4);
+      --text: #e4f3ff;
       --muted: #7f97ad;
       --font-display: "Orbitron", sans-serif;
       --font-mono: "Share Tech Mono", monospace;
+      --scan: rgba(60, 240, 197, 0.03);
     }
 
     * { box-sizing: border-box; }
@@ -29,55 +31,81 @@
     }
     canvas { display: block; }
 
+    /* subtle vignette / scan overlay */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 3;
+      background:
+        radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.55) 100%),
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          var(--scan) 2px,
+          var(--scan) 3px
+        );
+    }
+
     .panel {
       background:
-        linear-gradient(180deg, rgba(60,240,197,0.06), transparent 28%),
+        linear-gradient(135deg, rgba(60,240,197,0.08), transparent 42%),
+        linear-gradient(180deg, rgba(126,200,255,0.05), transparent 30%),
         var(--panel);
       border: 1px solid var(--panel-edge);
       clip-path: polygon(
-        0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px,
-        100% calc(100% - 10px), calc(100% - 10px) 100%,
-        10px 100%, 0 calc(100% - 10px)
+        0 12px, 12px 0, calc(100% - 12px) 0, 100% 12px,
+        100% calc(100% - 12px), calc(100% - 12px) 100%,
+        12px 100%, 0 calc(100% - 12px)
       );
       box-shadow:
-        0 0 0 1px rgba(0,0,0,0.5) inset,
-        0 12px 40px rgba(0,0,0,0.45),
-        0 0 24px rgba(60,240,197,0.08);
-      backdrop-filter: blur(6px);
+        0 0 0 1px rgba(0,0,0,0.55) inset,
+        0 16px 48px rgba(0,0,0,0.55),
+        0 0 32px rgba(60,240,197,0.1);
+      backdrop-filter: blur(8px);
+      position: relative;
     }
+    .panel::before,
+    .panel::after {
+      content: "";
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border: 1px solid var(--hud-cyan);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    .panel::before { top: 6px; left: 6px; border-right: 0; border-bottom: 0; }
+    .panel::after { bottom: 6px; right: 6px; border-left: 0; border-top: 0; }
 
     .panel-title {
       font-family: var(--font-display);
-      font-size: 11px;
-      letter-spacing: 0.18em;
+      font-size: 10px;
+      letter-spacing: 0.22em;
       color: var(--hud-cyan);
       margin-bottom: 10px;
       text-transform: uppercase;
+      text-shadow: 0 0 12px rgba(60,240,197,0.35);
     }
 
-    #pve-box {
-      position: fixed;
-      top: 18px;
-      left: 18px;
-      width: 200px;
-      padding: 14px 16px 12px;
-      z-index: 12;
-      user-select: none;
-    }
-    #pve-toggle {
+    .toggle-row {
       display: flex;
       align-items: center;
       gap: 12px;
       width: 100%;
       padding: 0;
+      margin: 0 0 8px;
       border: none;
       background: transparent;
       color: var(--text);
       font-family: var(--font-mono);
-      font-size: 14px;
+      font-size: 13px;
       cursor: pointer;
+      text-align: left;
     }
-    #pve-toggle .switch {
+    .toggle-row .switch {
       width: 42px;
       height: 22px;
       border-radius: 2px;
@@ -87,7 +115,7 @@
       flex-shrink: 0;
       transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
     }
-    #pve-toggle .switch::after {
+    .toggle-row .switch::after {
       content: "";
       position: absolute;
       top: 2px;
@@ -97,21 +125,102 @@
       background: var(--muted);
       transition: transform 0.15s, background 0.15s;
     }
-    #pve-toggle.on .switch {
+    .toggle-row.on .switch {
       background: rgba(60,240,197,0.18);
       border-color: var(--hud-cyan);
       box-shadow: 0 0 12px rgba(60,240,197,0.25);
     }
-    #pve-toggle.on .switch::after {
+    .toggle-row.on .switch::after {
       transform: translateX(20px);
       background: var(--hud-cyan);
     }
-    #pve-status {
-      margin-top: 10px;
-      font-size: 12px;
+    .toggle-row.pvp.on .switch {
+      background: rgba(255,77,90,0.2);
+      border-color: var(--hud-red);
+      box-shadow: 0 0 12px rgba(255,77,90,0.25);
+    }
+    .toggle-row.pvp.on .switch::after { background: var(--hud-red); }
+
+    #combat-box {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      width: 220px;
+      padding: 14px 16px 12px;
+      z-index: 12;
+      user-select: none;
+    }
+    #combat-status, #pvp-status {
+      font-size: 11px;
       color: var(--muted);
+      margin-top: 2px;
+      margin-bottom: 8px;
+    }
+
+    #lobby-box {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      width: 260px;
+      padding: 14px 16px 14px;
+      z-index: 12;
+      user-select: none;
+    }
+    #lobby-box .lobby-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    #lobby-box input {
+      flex: 1;
+      min-width: 0;
+      background: rgba(0,0,0,0.45);
+      border: 1px solid rgba(126,200,255,0.25);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      padding: 8px 10px;
+      outline: none;
+    }
+    #lobby-box input:focus {
+      border-color: var(--hud-cyan);
+      box-shadow: 0 0 12px rgba(60,240,197,0.2);
+    }
+    #lobby-box .lobby-btn {
+      background: rgba(60,240,197,0.12);
+      border: 1px solid rgba(60,240,197,0.35);
+      color: var(--hud-cyan);
+      font-family: var(--font-display);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      padding: 0 10px;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+    #lobby-box .lobby-btn:hover {
+      background: rgba(60,240,197,0.22);
+    }
+    #lobby-box .lobby-btn.danger {
+      border-color: rgba(255,77,90,0.4);
+      color: var(--hud-red);
+      background: rgba(255,77,90,0.08);
+    }
+    #lobby-status {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.45;
       border-top: 1px solid rgba(126,200,255,0.12);
       padding-top: 8px;
+      min-height: 34px;
+    }
+    #lobby-status.online { color: var(--hud-cyan); }
+    #lobby-status.warn { color: var(--hud-amber); }
+    #lobby-players {
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--hud-blue);
     }
 
     #center-hud {
@@ -119,7 +228,8 @@
       top: 18px;
       left: 50%;
       transform: translateX(-50%);
-      width: min(420px, calc(100vw - 40px));
+      width: min(440px, calc(100vw - 520px));
+      min-width: 280px;
       padding: 12px 16px 14px;
       z-index: 12;
       pointer-events: none;
@@ -143,7 +253,7 @@
     }
     .bar-track {
       height: 10px;
-      background: rgba(0,0,0,0.45);
+      background: rgba(0,0,0,0.5);
       border: 1px solid rgba(126,200,255,0.22);
       position: relative;
       overflow: hidden;
@@ -193,7 +303,7 @@
       position: fixed;
       bottom: 18px;
       right: 18px;
-      width: 280px;
+      width: 290px;
       padding: 14px 16px;
       z-index: 5;
       pointer-events: none;
@@ -215,29 +325,30 @@
       position: fixed;
       top: 0;
       left: 0;
-      width: 270px;
+      width: 280px;
       height: 100%;
       padding: 20px 16px 24px;
       z-index: 10;
       overflow-y: auto;
       background:
-        linear-gradient(90deg, rgba(4,10,18,0.96), rgba(4,10,18,0.88)),
+        linear-gradient(90deg, rgba(3,8,16,0.97), rgba(3,8,16,0.9)),
         repeating-linear-gradient(
           180deg,
           transparent,
           transparent 3px,
-          rgba(60,240,197,0.015) 3px,
-          rgba(60,240,197,0.015) 4px
+          rgba(60,240,197,0.02) 3px,
+          rgba(60,240,197,0.02) 4px
         );
       border-right: 1px solid var(--panel-edge);
-      box-shadow: 12px 0 40px rgba(0,0,0,0.45);
+      box-shadow: 16px 0 48px rgba(0,0,0,0.5);
     }
     #editor-ui h2 {
       margin: 0 0 10px;
       font-family: var(--font-display);
       font-size: 14px;
-      letter-spacing: 0.18em;
+      letter-spacing: 0.2em;
       color: var(--hud-cyan);
+      text-shadow: 0 0 14px rgba(60,240,197,0.35);
     }
     #editor-ui .hint {
       font-size: 12px;
@@ -258,6 +369,7 @@
     .block-btn {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 10px;
       width: 100%;
       padding: 9px 10px;
@@ -287,18 +399,39 @@
       color: var(--hud-amber);
       letter-spacing: 0.04em;
     }
+    .block-btn .btn-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+    }
+    .block-btn .cost {
+      display: block;
+      width: 100%;
+      margin: 4px 0 0 22px;
+      font-size: 10px;
+      color: var(--hud-amber);
+      opacity: 0.7;
+    }
+    .block-btn.locked {
+      opacity: 0.45;
+      cursor: not-allowed;
+      border-color: rgba(255,77,90,0.25);
+    }
+    .block-btn.locked .cost { color: var(--hud-red); opacity: 0.9; }
     .swatch {
       width: 12px;
       height: 12px;
       flex-shrink: 0;
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.15);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.15), 0 0 8px rgba(60,240,197,0.15);
     }
 
     #editor-title {
       display: none;
       position: fixed;
       top: 18px;
-      left: 290px;
+      left: 300px;
       z-index: 10;
       padding: 10px 14px;
       font-size: 12px;
@@ -310,19 +443,19 @@
       position: fixed;
       left: 50%;
       top: 50%;
-      width: 18px;
-      height: 18px;
-      margin: -9px 0 0 -9px;
+      width: 22px;
+      height: 22px;
+      margin: -11px 0 0 -11px;
       pointer-events: none;
       z-index: 4;
-      opacity: 0.55;
+      opacity: 0.65;
     }
     #crosshair::before,
     #crosshair::after {
       content: "";
       position: absolute;
       background: var(--hud-cyan);
-      box-shadow: 0 0 6px rgba(60,240,197,0.5);
+      box-shadow: 0 0 8px rgba(60,240,197,0.65);
     }
     #crosshair::before {
       left: 50%;
@@ -343,7 +476,7 @@
       position: fixed;
       bottom: 18px;
       left: 18px;
-      width: 200px;
+      width: 210px;
       padding: 14px 16px 12px;
       z-index: 12;
       pointer-events: none;
@@ -384,18 +517,52 @@
       color: var(--hud-amber);
       text-shadow: 0 0 8px rgba(255,200,87,0.35);
     }
+
+    #brand-mark {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 4;
+      pointer-events: none;
+      font-family: var(--font-display);
+      font-size: 10px;
+      letter-spacing: 0.35em;
+      color: rgba(60,240,197,0.35);
+      text-transform: uppercase;
+    }
   </style>
 </head>
 <body>
   <div id="crosshair"></div>
+  <div id="brand-mark">Absolute Dominion</div>
 
-  <div id="pve-box" class="panel">
+  <div id="combat-box" class="panel">
     <div class="panel-title">Combat Link</div>
-    <button id="pve-toggle" type="button" aria-pressed="false">
+    <button id="pve-toggle" class="toggle-row" type="button" aria-pressed="false">
       <span class="switch"></span>
       <span id="pve-label">PvE Offline</span>
     </button>
-    <div id="pve-status">Sector clear</div>
+    <div id="combat-status">Sector clear</div>
+    <button id="pvp-toggle" class="toggle-row pvp" type="button" aria-pressed="false">
+      <span class="switch"></span>
+      <span id="pvp-label">PvP Offline</span>
+    </button>
+    <div id="pvp-status">Friendly fire locked</div>
+  </div>
+
+  <div id="lobby-box" class="panel">
+    <div class="panel-title">Fleet Lobby</div>
+    <div class="lobby-row">
+      <input id="lobby-code" maxlength="6" placeholder="CODE" autocomplete="off" spellcheck="false" />
+    </div>
+    <div class="lobby-row">
+      <button id="lobby-create" class="lobby-btn" type="button">Create</button>
+      <button id="lobby-join" class="lobby-btn" type="button">Join</button>
+      <button id="lobby-leave" class="lobby-btn danger" type="button">Leave</button>
+    </div>
+    <div id="lobby-status">Enter a code to create or join a lobby</div>
+    <div id="lobby-players"></div>
   </div>
 
   <div id="center-hud" class="panel">
@@ -447,6 +614,7 @@
   <div id="editor-title" class="panel">RMB orbit · R rotate · Q deselect · X delete · E exit</div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="ad-vs-0.0.js"></script>
 </body>
 </html>
