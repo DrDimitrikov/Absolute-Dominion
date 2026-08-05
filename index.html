@@ -531,11 +531,325 @@
       color: rgba(60,240,197,0.35);
       text-transform: uppercase;
     }
+
+    /* ---- FTL NAV MAP ---- */
+    #ftl-map {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      background:
+        radial-gradient(ellipse at 50% 40%, rgba(20, 40, 70, 0.55), rgba(0, 0, 0, 0.92) 70%),
+        #02050a;
+      padding: 48px 56px 40px;
+      overflow: hidden;
+    }
+    #ftl-map.open { display: block; }
+    #ftl-map .ftl-header {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 18px;
+      pointer-events: none;
+    }
+    #ftl-map .ftl-header h1 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 22px;
+      letter-spacing: 0.28em;
+      color: var(--hud-cyan);
+      text-shadow: 0 0 24px rgba(60,240,197,0.45);
+    }
+    #ftl-map .ftl-header .ftl-sub {
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+    #ftl-map .ftl-close-hint {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+    }
+    #ftl-canvas-wrap {
+      position: absolute;
+      inset: 90px 48px 110px;
+      border: 1px solid rgba(60,240,197,0.25);
+      background:
+        radial-gradient(circle at 50% 50%, rgba(60,240,197,0.04), transparent 55%),
+        repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(126,200,255,0.04) 39px, rgba(126,200,255,0.04) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(126,200,255,0.04) 39px, rgba(126,200,255,0.04) 40px);
+      clip-path: polygon(0 16px, 16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px));
+      overflow: hidden;
+    }
+    #ftl-stars {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    #ftl-nodes {
+      position: absolute;
+      inset: 0;
+    }
+    .ftl-node {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      width: 18px;
+      height: 18px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      padding: 0;
+      z-index: 2;
+    }
+    .ftl-node .ring {
+      position: absolute;
+      inset: -6px;
+      border: 1px solid rgba(126,200,255,0.35);
+      border-radius: 50%;
+      transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+    }
+    .ftl-node .core {
+      position: absolute;
+      inset: 3px;
+      border-radius: 50%;
+      background: var(--node-color, var(--hud-cyan));
+      box-shadow: 0 0 14px var(--node-color, var(--hud-cyan));
+    }
+    .ftl-node .label {
+      position: absolute;
+      top: 26px;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-family: var(--font-display);
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      color: var(--text);
+      text-shadow: 0 0 10px rgba(0,0,0,0.9);
+      pointer-events: none;
+    }
+    .ftl-node:hover .ring,
+    .ftl-node:focus .ring {
+      border-color: var(--hud-amber);
+      box-shadow: 0 0 18px rgba(255,200,87,0.35);
+      transform: scale(1.15);
+    }
+    .ftl-node.current .ring {
+      border-color: var(--hud-cyan);
+      box-shadow: 0 0 20px rgba(60,240,197,0.55);
+    }
+    .ftl-node.current .label { color: var(--hud-cyan); }
+    .ftl-node.selected .ring {
+      border-color: var(--hud-amber);
+      box-shadow: 0 0 22px rgba(255,200,87,0.55);
+      transform: scale(1.2);
+    }
+    #ftl-routes {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    #ftl-footer {
+      position: absolute;
+      left: 56px;
+      right: 56px;
+      bottom: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      z-index: 3;
+    }
+    #ftl-selection {
+      font-size: 13px;
+      color: var(--muted);
+      min-height: 40px;
+    }
+    #ftl-selection strong {
+      display: block;
+      font-family: var(--font-display);
+      font-size: 14px;
+      letter-spacing: 0.18em;
+      color: var(--hud-amber);
+      font-weight: normal;
+      margin-bottom: 4px;
+    }
+    #ftl-jump-btn {
+      display: none;
+      background: rgba(60,240,197,0.14);
+      border: 1px solid rgba(60,240,197,0.5);
+      color: var(--hud-cyan);
+      font-family: var(--font-display);
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      padding: 14px 28px;
+      cursor: pointer;
+      text-transform: uppercase;
+      clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+      box-shadow: 0 0 24px rgba(60,240,197,0.2);
+    }
+    #ftl-jump-btn:hover {
+      background: rgba(60,240,197,0.28);
+    }
+    #ftl-jump-btn.visible { display: block; }
+
+    /* ---- FTL CUTSCENE OVERLAY ---- */
+    #ftl-cinematic {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    #ftl-cinematic.active { display: block; }
+    #ftl-streaks {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      background: repeating-linear-gradient(
+        90deg,
+        transparent 0,
+        transparent 40%,
+        rgba(180, 230, 255, 0.08) 48%,
+        rgba(255,255,255,0.35) 50%,
+        rgba(180, 230, 255, 0.08) 52%,
+        transparent 60%,
+        transparent 100%
+      );
+      background-size: 24px 100%;
+      mix-blend-mode: screen;
+      transform: scaleY(1.2);
+    }
+    #ftl-flash {
+      position: absolute;
+      inset: 0;
+      background: #dffcff;
+      opacity: 0;
+    }
+    #ftl-vignette-hard {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.75) 100%);
+      opacity: 0.6;
+    }
+    #ftl-cine-title {
+      position: absolute;
+      left: 50%;
+      top: 18%;
+      transform: translateX(-50%);
+      text-align: center;
+      opacity: 0;
+    }
+    #ftl-cine-title .phase {
+      font-family: var(--font-display);
+      font-size: 11px;
+      letter-spacing: 0.4em;
+      color: var(--hud-cyan);
+      margin-bottom: 10px;
+    }
+    #ftl-cine-title .dest {
+      font-family: var(--font-display);
+      font-size: 28px;
+      letter-spacing: 0.22em;
+      color: var(--text);
+      text-shadow: 0 0 30px rgba(60,240,197,0.5);
+    }
+    #ftl-cine-title .eta {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.14em;
+    }
+
+    #ftl-toast {
+      display: none;
+      position: fixed;
+      left: 50%;
+      top: 12%;
+      transform: translateX(-50%) translateY(-8px);
+      z-index: 55;
+      padding: 16px 28px 18px;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.35s ease, transform 0.35s ease;
+      background:
+        linear-gradient(135deg, rgba(60,240,197,0.12), transparent 50%),
+        rgba(3, 8, 16, 0.92);
+      border: 1px solid rgba(60,240,197,0.45);
+      box-shadow: 0 0 40px rgba(60,240,197,0.2), 0 16px 48px rgba(0,0,0,0.55);
+      clip-path: polygon(0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px));
+      min-width: min(520px, 86vw);
+    }
+    #ftl-toast.show {
+      display: block;
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    #ftl-toast .toast-label {
+      font-family: var(--font-display);
+      font-size: 10px;
+      letter-spacing: 0.32em;
+      color: var(--hud-cyan);
+      margin-bottom: 8px;
+    }
+    #ftl-toast .toast-msg {
+      font-family: var(--font-display);
+      font-size: 16px;
+      letter-spacing: 0.12em;
+      color: var(--text);
+      text-transform: uppercase;
+    }
+    #ftl-toast .toast-msg span {
+      color: var(--hud-amber);
+      text-shadow: 0 0 16px rgba(255,200,87,0.4);
+    }
   </style>
 </head>
 <body>
   <div id="crosshair"></div>
   <div id="brand-mark">Absolute Dominion</div>
+  <div id="ftl-toast">
+    <div class="toast-label">NAV COMPUTER</div>
+    <div class="toast-msg" id="ftl-toast-msg">Initiating FTL jump</div>
+  </div>
+
+  <div id="ftl-map">
+    <div class="ftl-header">
+      <div>
+        <h1>FTL NAVIGATION</h1>
+        <div class="ftl-sub">SELECT A SYSTEM CLUSTER · JUMP INITIATES CINEMATIC TRANSIT</div>
+      </div>
+      <div class="ftl-close-hint">R / ESC — CLOSE</div>
+    </div>
+    <div id="ftl-canvas-wrap">
+      <canvas id="ftl-stars"></canvas>
+      <svg id="ftl-routes" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="ftl-nodes"></div>
+    </div>
+    <div id="ftl-footer">
+      <div id="ftl-selection">Select a cluster to plot an FTL course</div>
+      <button id="ftl-jump-btn" type="button">Engage FTL</button>
+    </div>
+  </div>
+
+  <div id="ftl-cinematic">
+    <div id="ftl-streaks"></div>
+    <div id="ftl-vignette-hard"></div>
+    <div id="ftl-flash"></div>
+    <div id="ftl-cine-title">
+      <div class="phase" id="ftl-cine-phase">SPOOLING DRIVE</div>
+      <div class="dest" id="ftl-cine-dest">—</div>
+      <div class="eta" id="ftl-cine-eta"></div>
+    </div>
+  </div>
 
   <div id="combat-box" class="panel">
     <div class="panel-title">Combat Link</div>
@@ -598,9 +912,10 @@
     <b>F</b> — fire weapons<br>
     <b>T</b> — lock nearest enemy<br>
     <b>M</b> — focus moon · hold M approach/mine<br>
+    <b>R</b> — FTL nav map / jump<br>
     <b>Shift</b> — spool boost (to 3x)<br>
     <b>E</b> — ship editor<br>
-    <b>Esc</b> — release mouse lock
+    <b>Esc</b> — close map / release mouse
   </div>
 
   <div id="editor-ui">
