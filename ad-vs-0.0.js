@@ -373,6 +373,89 @@ const BLOCK_TYPES = [
     cargoBonus: 120, make: () => makeOreHold()
   },
 
+  // --- Advanced (require mined materials) ---
+  {
+    id: "iron_plating", label: "Iron Plating", category: "advanced", color: 0x9aa3ad, markerOffset: -2.2, hp: 28,
+    cost: { iron: 25 },
+    make: () => makeShapeGroup(new THREE.Mesh(new THREE.BoxGeometry(3.9, 3.5, 3.9), mat(0x9aa3ad, { metalness: 0.7, roughness: 0.3 })))
+  },
+  {
+    id: "alloy_frame", label: "Alloy Frame", category: "advanced", color: 0xb8a070, markerOffset: -2.2, hp: 32,
+    cost: { iron: 20, oil: 15 },
+    make: () => makeShapeGroup(new THREE.Mesh(new THREE.BoxGeometry(3.7, 3.7, 3.7), mat(0xb8a070, { metalness: 0.6, roughness: 0.35 })))
+  },
+  {
+    id: "cryo_shell", label: "Cryo Shell", category: "advanced", color: 0xb8d4ff, markerOffset: -2.2, hp: 26,
+    cost: { void_ice: 30 },
+    make: () => makeShapeGroup(new THREE.Mesh(new THREE.SphereGeometry(1.95, 16, 16), mat(0xb8d4ff, { metalness: 0.2, roughness: 0.15, emissive: 0x224466, emissiveIntensity: 0.2 })))
+  },
+  {
+    id: "plasma_shield", label: "Plasma Shield", category: "advanced", color: 0x7cf0ff, markerOffset: -2.2, hp: 20,
+    cost: { plasma_crystal: 35 },
+    make: () => makeShapeGroup(new THREE.Mesh(new THREE.SphereGeometry(2.0, 16, 16), mat(0x7cf0ff, { transparent: true, opacity: 0.45, emissive: 0x33aacc, emissiveIntensity: 0.4 })))
+  },
+  {
+    id: "stardust_panel", label: "Stardust Panel", category: "advanced", color: 0xffe08a, markerOffset: -2.2, hp: 18,
+    cost: { stardust: 25 },
+    make: () => makeShapeGroup(new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.7, 3.8), mat(0xffe08a, { emissive: 0x886600, emissiveIntensity: 0.35, metalness: 0.4 })))
+  },
+  {
+    id: "composite_wing", label: "Composite Wing", category: "advanced", color: 0x8ec8ff, markerOffset: -2.4, hp: 16,
+    cost: { iron: 15, stardust: 10 },
+    make: () => makeShapeGroup(new THREE.Mesh(new THREE.BoxGeometry(0.55, 3.8, 4.2), mat(0x8ec8ff, { metalness: 0.5 })))
+  },
+  {
+    id: "fuel_injector", label: "Fuel Injector", category: "advanced", color: 0xd4a04a, markerOffset: -2.2, hp: 12,
+    cost: { oil: 40, iron: 10 },
+    make: () => {
+      const g = new THREE.Group();
+      g.add(new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.4, 3.4, 12), mat(0xd4a04a, { metalness: 0.45 })));
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.9, 1.4, 10), mat(0xff6622, { emissive: 0xff4400, emissiveIntensity: 0.35 }));
+      tip.position.y = -2.2;
+      g.add(tip);
+      return g;
+    }
+  },
+  {
+    id: "crystal_reactor", label: "Crystal Reactor", category: "advanced", color: 0x66e0ff, markerOffset: -2.2, hp: 14,
+    cost: { plasma_crystal: 40, void_ice: 15 },
+    make: () => {
+      const g = new THREE.Group();
+      g.add(new THREE.Mesh(new THREE.OctahedronGeometry(1.9, 0), mat(0x66e0ff, { emissive: 0x2288aa, emissiveIntensity: 0.5, metalness: 0.3, roughness: 0.2 })));
+      return g;
+    }
+  },
+  {
+    id: "nova_cannon", label: "Nova Cannon", category: "advanced", color: 0xff66aa, markerOffset: -2.6, hp: 12,
+    cost: { plasma_crystal: 45, stardust: 20 },
+    damage: 42, projectileSpeed: 10, projectileLife: 70, projectileSize: 0.85, projectileColor: 0xff88cc,
+    make: () => makeBarrelWeapon(0xff66aa, 0.8, 4.2)
+  },
+  {
+    id: "void_torpedo", label: "Void Torpedo", category: "advanced", color: 0x88aaff, markerOffset: -2.4, hp: 12,
+    cost: { void_ice: 40, oil: 20 },
+    damage: 48, projectileSpeed: 5, projectileLife: 130, projectileSize: 0.9, projectileColor: 0xaaccff,
+    make: () => makeMissilePod(0x88aaff)
+  },
+  {
+    id: "dust_thruster", label: "Dust Thruster", category: "advanced", color: 0xffcc66, markerOffset: -2.2, hp: 11,
+    cost: { stardust: 35, oil: 15 },
+    make: () => {
+      const g = new THREE.Group();
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.6, 3.2), mat(0xffcc66, { metalness: 0.4 })));
+      const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.3, 1.4, 12), mat(0xffe08a, { emissive: 0xffaa33, emissiveIntensity: 0.55 }));
+      nozzle.rotation.x = Math.PI / 2;
+      nozzle.position.z = 2.1;
+      g.add(nozzle);
+      return g;
+    }
+  },
+  {
+    id: "hardened_nose", label: "Hardened Nose", category: "advanced", color: 0xc0c8d4, markerOffset: -2.2, hp: 24,
+    cost: { iron: 30, void_ice: 10 },
+    make: () => makeShapeGroup(new THREE.Mesh(new THREE.ConeGeometry(2.0, 4.0, 12), mat(0xc0c8d4, { metalness: 0.65, roughness: 0.28 })))
+  },
+
   // --- Weapons (unique stats) ---
   {
     id: "weapon", label: "Light Gun", category: "weapon", color: 0xe64545, markerOffset: -2.4, hp: 8,
@@ -407,8 +490,45 @@ const BLOCK_TYPES = [
 ];
 
 function blockTypeById(id) { return BLOCK_TYPES.find(b => b.id === id); }
-function isWeaponType(id) { return WEAPON_IDS.has(id); }
+function isWeaponType(id) {
+  const def = blockTypeById(id);
+  return !!(def && (WEAPON_IDS.has(id) || def.damage != null));
+}
 function isMiningTool(id) { return id === "drill" || id === "mining_laser"; }
+
+function formatCost(cost) {
+  if (!cost) return "";
+  return Object.entries(cost).map(([id, n]) => {
+    const r = RESOURCES.find(x => x.id === id);
+    return `${n} ${(r && r.label) || id}`;
+  }).join(" · ");
+}
+
+function canAfford(cost) {
+  if (!cost) return true;
+  for (const [id, need] of Object.entries(cost)) {
+    if ((inventory[id] || 0) < need) return false;
+  }
+  return true;
+}
+
+function spendCost(cost) {
+  if (!cost) return;
+  for (const [id, need] of Object.entries(cost)) {
+    inventory[id] = Math.max(0, (inventory[id] || 0) - need);
+  }
+  updateCargoHud();
+  refreshBlockListAffordability();
+}
+
+function refundCost(cost) {
+  if (!cost) return;
+  for (const [id, need] of Object.entries(cost)) {
+    inventory[id] = (inventory[id] || 0) + need;
+  }
+  updateCargoHud();
+  refreshBlockListAffordability();
+}
 
 function createBlockMesh(typeId) {
   const def = blockTypeById(typeId);
@@ -441,6 +561,7 @@ function findBlockRoot(obj) {
 }
 
 let shipBlocks = [];
+let blocksVersion = 1;
 
 function rebuildShipFromBlocks() {
   while (ship.children.length) ship.remove(ship.children[0]);
@@ -448,6 +569,7 @@ function rebuildShipFromBlocks() {
   if (shipBlocks.length === 0) {
     ship.add(placeholderMesh);
     refreshPlayerMaxHealth(true);
+    blocksVersion++;
     return;
   }
   for (const b of shipBlocks) {
@@ -457,13 +579,14 @@ function rebuildShipFromBlocks() {
     ship.add(mesh);
   }
   refreshPlayerMaxHealth(true);
+  blocksVersion++;
 }
 
 function getRegularEngineCount() {
-  return shipBlocks.filter(b => b.type === "engine").length;
+  return shipBlocks.filter(b => b.type === "engine" || b.type === "fuel_injector").length;
 }
 function getBoostEngineCount() {
-  return shipBlocks.filter(b => b.type === "boost_engine").length;
+  return shipBlocks.filter(b => b.type === "boost_engine" || b.type === "dust_thruster").length;
 }
 function getWeaponBlocks() {
   return shipBlocks.filter(b => isWeaponType(b.type));
@@ -565,13 +688,30 @@ function deselectPlacingBlock() {
 }
 
 const blockListEl = document.getElementById("block-list");
-const CATEGORY_ORDER = ["structure", "propulsion", "mining", "weapon"];
+const CATEGORY_ORDER = ["structure", "propulsion", "mining", "advanced", "weapon"];
 const CATEGORY_LABELS = {
   structure: "STRUCTURE",
   propulsion: "PROPULSION",
   mining: "MINING",
+  advanced: "ADVANCED (CRAFT)",
   weapon: "WEAPONS"
 };
+
+function refreshBlockListAffordability() {
+  document.querySelectorAll(".block-btn[data-block-id]").forEach((btn) => {
+    const id = btn.getAttribute("data-block-id");
+    const def = blockTypeById(id);
+    if (!def) return;
+    const locked = def.cost && !canAfford(def.cost);
+    btn.classList.toggle("locked", !!locked);
+    btn.disabled = !!locked;
+    const costEl = btn.querySelector(".cost");
+    if (costEl && def.cost) {
+      costEl.textContent = formatCost(def.cost);
+      costEl.style.opacity = locked ? "0.85" : "0.65";
+    }
+  });
+}
 
 CATEGORY_ORDER.forEach(cat => {
   const label = document.createElement("div");
@@ -582,12 +722,15 @@ CATEGORY_ORDER.forEach(cat => {
   BLOCK_TYPES.filter(bt => bt.category === cat).forEach(bt => {
     const btn = document.createElement("button");
     btn.className = "block-btn" + (bt.id === selectedType ? " selected" : "");
+    btn.setAttribute("data-block-id", bt.id);
     const dmgMeta = bt.damage != null ? `<span class="meta">${bt.damage} dmg</span>`
       : bt.mineRate != null ? `<span class="meta">${bt.mineRate}/t</span>`
       : bt.cargoBonus != null ? `<span class="meta">+${bt.cargoBonus} cap</span>`
       : "";
-    btn.innerHTML = `<span class="swatch" style="background:#${bt.color.toString(16).padStart(6,"0")}"></span>${bt.label}${dmgMeta}`;
+    const costMeta = bt.cost ? `<span class="cost">${formatCost(bt.cost)}</span>` : "";
+    btn.innerHTML = `<span class="swatch" style="background:#${bt.color.toString(16).padStart(6,"0")}"></span><span class="btn-label">${bt.label}${dmgMeta}</span>${costMeta}`;
     btn.addEventListener("click", () => {
+      if (bt.cost && !canAfford(bt.cost)) return;
       document.querySelectorAll(".block-btn").forEach(b => b.classList.remove("selected"));
       btn.classList.add("selected");
       setSelectedType(bt.id);
@@ -595,6 +738,7 @@ CATEGORY_ORDER.forEach(cat => {
     blockListEl.appendChild(btn);
   });
 });
+// Affordability refresh runs after inventory is initialized.
 
 const raycaster = new THREE.Raycaster();
 const mouseNDC = new THREE.Vector2();
@@ -631,7 +775,16 @@ function updateGhost(clientX, clientY) {
 function placeBlock() {
   if (selectedType === null) return;
   if (!ghostCell || occupied.has(ghostCell.key)) return;
+  const def = blockTypeById(selectedType);
+  if (!def) return;
+  if (def.cost && !canAfford(def.cost)) {
+    refreshBlockListAffordability();
+    return;
+  }
+
   const { gx, gy, gz, key } = ghostCell;
+
+  if (def.cost) spendCost(def.cost);
 
   const mesh = createBlockMesh(selectedType);
   mesh.position.set(gx * GRID, gy * GRID, gz * GRID);
@@ -641,6 +794,7 @@ function placeBlock() {
   occupied.add(key);
 
   shipBlocks.push({ type: selectedType, gx, gy, gz, rot: ghostRotation });
+  refreshBlockListAffordability();
 }
 
 function trySelectBlock(clientX, clientY) {
@@ -679,13 +833,17 @@ function deleteSelectedBlock() {
   if (selectedBlockIndex === null) return;
   const mesh = placedMeshes[selectedBlockIndex];
   const block = shipBlocks[selectedBlockIndex];
+  const def = blockTypeById(block.type);
 
   editorScene.remove(mesh);
   occupied.delete(`${block.gx},${block.gy},${block.gz}`);
   placedMeshes.splice(selectedBlockIndex, 1);
   shipBlocks.splice(selectedBlockIndex, 1);
 
+  if (def && def.cost) refundCost(def.cost);
+
   clearSelection();
+  refreshBlockListAffordability();
 }
 
 function loadEditorFromShipBlocks() {
@@ -833,6 +991,7 @@ function updateCargoHud() {
     html += `<div class="cargo-row"><span class="dot" style="background:${r.color}"></span>${r.label}<span class="amt">${amt.toFixed(0)}</span></div>`;
   }
   cargoListEl.innerHTML = html;
+  refreshBlockListAffordability();
 }
 
 updateCargoHud();
@@ -851,8 +1010,16 @@ const _laserTo = new THREE.Vector3();
 const _laserDir = new THREE.Vector3();
 const _laserUp = new THREE.Vector3(0, 1, 0);
 const MINE_RANGE_PAD = 40;
-const M_HOLD_MS = 200;
+const MINE_HITBOX_PAD = 55;
+const M_HOLD_MS = 180;
 const APPROACH_SPEED_MULT = 1.35;
+
+function isInsideMoonHitbox(moon) {
+  if (!moon || !moon.active) return false;
+  getMoonWorldPos(moon, _moonWorld);
+  const dist = ship.position.distanceTo(_moonWorld);
+  return dist <= getMoonEffectiveRadius(moon) + MINE_HITBOX_PAD;
+}
 
 const miningLaserBeam = new THREE.Mesh(
   new THREE.CylinderGeometry(0.45, 0.25, 1, 10),
@@ -1010,10 +1177,12 @@ function updateMining() {
     aimCameraAtWorldPoint(_moonWorld);
   }
 
-  // Hold M after tap → start auto-approach
+  // Hold M after tap → start auto-approach (or mine immediately if already in hitbox)
   if (miningPhase === "focused" && keys["m"] && (performance.now() - mKeyDownAt) >= M_HOLD_MS) {
     if (!hasMiningGear()) {
       setMiningStatus("Need a Mining Drill or Mining Laser to approach", false);
+    } else if (isInsideMoonHitbox(miningMoon)) {
+      beginMining(miningMoon);
     } else {
       miningPhase = "approaching";
       setMiningStatus(`Approaching ${miningMoon.name}…`, true);
@@ -1026,7 +1195,6 @@ function updateMining() {
       return;
     }
     if (!keys["m"]) {
-      // released before mining started — cancel approach
       onMiningKeyUp();
       return;
     }
@@ -1034,25 +1202,28 @@ function updateMining() {
     getMoonWorldPos(miningMoon, _moonWorld);
     const toMoon = _moonWorld.clone().sub(ship.position);
     const dist = toMoon.length();
-    const stopDist = getMoonEffectiveRadius(miningMoon) + 24;
+    const hitbox = getMoonEffectiveRadius(miningMoon) + MINE_HITBOX_PAD;
 
-    if (dist > stopDist) {
+    // Keep moving toward the moon while holding M
+    if (dist > 0.001) {
       toMoon.normalize();
       const speed = getCurrentMoveSpeed() * APPROACH_SPEED_MULT;
-      ship.position.addScaledVector(toMoon, Math.min(speed, dist - stopDist));
+      const step = Math.min(speed, Math.max(0.05, dist - hitbox * 0.25));
+      ship.position.addScaledVector(toMoon, step);
       tempFacingObj.position.copy(ship.position);
       tempFacingObj.lookAt(_moonWorld);
-      ship.quaternion.slerp(tempFacingObj.quaternion, 0.18);
-    } else {
+      ship.quaternion.slerp(tempFacingObj.quaternion, 0.2);
+    }
+
+    // Holding M inside moon hitbox → start mining while continuing to follow
+    if (isInsideMoonHitbox(miningMoon)) {
       beginMining(miningMoon);
+    } else {
+      setMiningStatus(`Approaching ${miningMoon.name}… ${dist.toFixed(0)}u`, true);
     }
   }
 
   if (miningPhase === "mining" && miningMoon) {
-    if (!hasMiningGear()) {
-      // Gear removed mid-mine — still finish? User said doesn't stop until depleted.
-      // Keep following/depleting at a tiny base rate so lock still ends.
-    }
     if (!miningMoon.active) {
       stopMining("Moon depleted");
       return;
@@ -1062,9 +1233,9 @@ function updateMining() {
     let away = ship.position.clone().sub(_moonWorld);
     if (away.lengthSq() < 0.01) away.set(1, 0.2, 0);
     away.normalize();
-    const followDist = getMoonEffectiveRadius(miningMoon) + 22;
+    const followDist = Math.max(12, getMoonEffectiveRadius(miningMoon) * 0.55 + 18);
     const desired = _moonWorld.clone().add(away.multiplyScalar(followDist));
-    ship.position.lerp(desired, 0.2);
+    ship.position.lerp(desired, 0.22);
 
     tempFacingObj.position.copy(ship.position);
     tempFacingObj.lookAt(_moonWorld);
@@ -1078,7 +1249,6 @@ function updateMining() {
       inventory[miningMoon.resourceId] = (inventory[miningMoon.resourceId] || 0) + stored;
       updateCargoHud();
     }
-    // Always deplete moon while mining (overflow is lost if cargo full)
     miningMoon.remaining = Math.max(0, miningMoon.remaining - take);
     updateMoonScale(miningMoon);
 
@@ -1180,6 +1350,21 @@ const MAX_ENEMIES = 2;
 let pveEnabled = false;
 const enemies = [];
 
+// Multiplayer stubs (fully wired in MULTIPLAYER section)
+let lobbyConnected = false;
+let lobbyHost = false;
+let lobbyCodeActive = "";
+let localPeer = null;
+let localPeerId = "";
+const remotePlayers = {};
+const peerConnections = {};
+function broadcastLobbyState() {}
+function broadcastFire() {}
+function syncMultiplayer() {}
+function getLobbyPlayerCount() {
+  return 1 + Object.keys(remotePlayers).length;
+}
+
 // Presets use only editor block types.
 const ENEMY_PRESETS = [
   {
@@ -1245,7 +1430,18 @@ const ENEMY_PRESETS = [
 
 const pveToggleBtn = document.getElementById("pve-toggle");
 const pveLabelEl = document.getElementById("pve-label");
-const pveStatusEl = document.getElementById("pve-status");
+const pveStatusEl = document.getElementById("combat-status");
+const pvpToggleBtn = document.getElementById("pvp-toggle");
+const pvpLabelEl = document.getElementById("pvp-label");
+const pvpStatusEl = document.getElementById("pvp-status");
+
+let pvpEnabled = false;
+
+function shouldSpawnPveEnemies() {
+  // With 2+ players in a lobby and local PvP on, suppress AI enemies
+  if (lobbyConnected && getLobbyPlayerCount() > 1 && pvpEnabled) return false;
+  return pveEnabled;
+}
 
 function updatePveUi() {
   pveToggleBtn.classList.toggle("on", pveEnabled);
@@ -1253,9 +1449,43 @@ function updatePveUi() {
   pveLabelEl.textContent = pveEnabled ? "PvE Online" : "PvE Offline";
   if (!pveEnabled) {
     pveStatusEl.textContent = "Sector clear";
+  } else if (!shouldSpawnPveEnemies()) {
+    pveStatusEl.textContent = "PvE paused — PvP lobby active";
   } else {
     pveStatusEl.textContent = `Hostiles: ${enemies.length} / ${MAX_ENEMIES}`;
   }
+  updatePvpUi();
+}
+
+function updatePvpUi() {
+  if (!pvpToggleBtn) return;
+  pvpToggleBtn.classList.toggle("on", pvpEnabled);
+  pvpToggleBtn.setAttribute("aria-pressed", pvpEnabled ? "true" : "false");
+  pvpLabelEl.textContent = pvpEnabled ? "PvP Online" : "PvP Offline";
+  if (!pvpEnabled) {
+    pvpStatusEl.textContent = "Friendly fire locked";
+  } else if (!lobbyConnected) {
+    pvpStatusEl.textContent = "Armed — join a lobby to duel";
+  } else if (getLobbyPlayerCount() < 2) {
+    pvpStatusEl.textContent = "Waiting for another pilot…";
+  } else {
+    pvpStatusEl.textContent = "Mutual locks required to deal damage";
+  }
+}
+
+function setPvpEnabled(on) {
+  pvpEnabled = !!on;
+  if (pvpEnabled && lobbyConnected && getLobbyPlayerCount() > 1) {
+    clearAllEnemies();
+  }
+  updatePvpUi();
+  updatePveUi();
+  if (shouldSpawnPveEnemies()) {
+    while (enemies.length < MAX_ENEMIES) spawnEnemy();
+  } else if (pveEnabled && lobbyConnected && getLobbyPlayerCount() > 1 && pvpEnabled) {
+    clearAllEnemies();
+  }
+  broadcastLobbyState();
 }
 
 function buildShipGroupFromBlocks(blocks) {
@@ -1362,11 +1592,16 @@ function setPveEnabled(on) {
   if (!pveEnabled) {
     clearAllEnemies();
     clearHealCrates();
-  } else {
+  } else if (shouldSpawnPveEnemies()) {
     while (enemies.length < MAX_ENEMIES) spawnEnemy();
+    ensureHealCrates();
+  } else {
+    clearAllEnemies();
+    // heal crates still ok in multiplayer
     ensureHealCrates();
   }
   updatePveUi();
+  broadcastLobbyState();
 }
 
 // ============================================================
@@ -1485,9 +1720,17 @@ function updateTargetLock() {
 pveToggleBtn.addEventListener("click", () => {
   setPveEnabled(!pveEnabled);
 });
+if (pvpToggleBtn) {
+  pvpToggleBtn.addEventListener("click", () => {
+    setPvpEnabled(!pvpEnabled);
+  });
+}
 
 function updateEnemies() {
-  if (!pveEnabled) return;
+  if (!shouldSpawnPveEnemies()) {
+    if (enemies.length) clearAllEnemies();
+    return;
+  }
 
   // Maintain two alive enemies
   while (enemies.length < MAX_ENEMIES) spawnEnemy();
@@ -1592,7 +1835,8 @@ function toggleEditor() {
   const editorUiEl = document.getElementById("editor-ui");
   const editorTitleEl = document.getElementById("editor-title");
   const controlsBoxEl = document.getElementById("controls-box");
-  const pveBoxEl = document.getElementById("pve-box");
+  const pveBoxEl = document.getElementById("combat-box");
+  const lobbyBoxEl = document.getElementById("lobby-box");
   if (!editorUiEl || !editorTitleEl || !controlsBoxEl) {
     console.error("Editor UI elements not found - check index.html has #editor-ui, #editor-title, #controls-box");
     return;
@@ -1602,6 +1846,7 @@ function toggleEditor() {
   editorTitleEl.style.display = editorOpen ? "block" : "none";
   controlsBoxEl.style.display = editorOpen ? "none" : "block";
   if (pveBoxEl) pveBoxEl.style.display = editorOpen ? "none" : "block";
+  if (lobbyBoxEl) lobbyBoxEl.style.display = editorOpen ? "none" : "block";
   if (centerHudEl) centerHudEl.style.display = editorOpen ? "none" : "block";
   if (crosshairEl) crosshairEl.style.display = editorOpen ? "none" : "block";
   if (cargoHudEl) cargoHudEl.style.display = editorOpen ? "none" : "block";
@@ -1771,7 +2016,7 @@ function getWeaponWorldDirection(ownerQuaternion, block) {
   return localDir.multiplyScalar(-1);
 }
 
-function spawnProjectile(origin, direction, def, fromEnemy) {
+function spawnProjectile(origin, direction, def, fromEnemy, meta = {}) {
   const size = def.projectileSize || 0.5;
   const mesh = new THREE.Mesh(
     new THREE.SphereGeometry(size, 8, 8),
@@ -1786,6 +2031,8 @@ function spawnProjectile(origin, direction, def, fromEnemy) {
     life: def.projectileLife || 90,
     damage: def.damage || 8,
     fromEnemy: !!fromEnemy,
+    fromRemote: !!meta.fromRemote,
+    ownerId: meta.ownerId || null,
     hitRadius: Math.max(3.5, size * 6)
   });
 }
@@ -1795,6 +2042,7 @@ function fireWeapons() {
   if (weapons.length === 0) return;
 
   ship.updateMatrixWorld(true);
+  const fired = [];
 
   for (const w of weapons) {
     const def = blockTypeById(w.type);
@@ -1815,9 +2063,20 @@ function fireWeapons() {
         dir.z += (Math.random() - 0.5) * spread;
         dir.normalize();
       }
-      spawnProjectile(worldPos, dir, def, false);
+      spawnProjectile(worldPos, dir, def, false, { ownerId: localPeerId || "local" });
+      fired.push({
+        ox: worldPos.x, oy: worldPos.y, oz: worldPos.z,
+        dx: dir.x, dy: dir.y, dz: dir.z,
+        damage: def.damage || 8,
+        speed: def.projectileSpeed || 6,
+        life: def.projectileLife || 90,
+        size: def.projectileSize || 0.5,
+        color: def.projectileColor || 0xff5555
+      });
     }
   }
+
+  if (fired.length) broadcastFire(fired);
 }
 
 function updateProjectiles() {
@@ -1833,13 +2092,33 @@ function updateProjectiles() {
         damagePlayer(p.damage);
         hit = true;
       }
-    } else if (pveEnabled) {
-      for (let ei = enemies.length - 1; ei >= 0; ei--) {
-        const e = enemies[ei];
-        if (p.mesh.position.distanceTo(e.group.position) < (e.radius + (p.hitRadius || 3))) {
-          damageEnemy(e, p.damage);
-          hit = true;
-          break;
+    } else if (p.fromRemote) {
+      // Remote player shot — only hurts us if BOTH have PvP on
+      if (pvpEnabled && p.ownerPvp && p.mesh.position.distanceTo(ship.position) < (p.hitRadius || 4)) {
+        damagePlayer(p.damage);
+        hit = true;
+      }
+    } else {
+      // Local shot
+      if (shouldSpawnPveEnemies()) {
+        for (let ei = enemies.length - 1; ei >= 0; ei--) {
+          const e = enemies[ei];
+          if (p.mesh.position.distanceTo(e.group.position) < (e.radius + (p.hitRadius || 3))) {
+            damageEnemy(e, p.damage);
+            hit = true;
+            break;
+          }
+        }
+      }
+      if (!hit && pvpEnabled) {
+        for (const id of Object.keys(remotePlayers)) {
+          const rp = remotePlayers[id];
+          if (!rp || !rp.pvp) continue;
+          if (p.mesh.position.distanceTo(rp.group.position) < 10) {
+            // Visual hit only — damage applied on their client via mutual PvP check
+            hit = true;
+            break;
+          }
         }
       }
     }
@@ -1849,6 +2128,364 @@ function updateProjectiles() {
       projectiles.splice(i, 1);
     }
   }
+}
+
+// ============================================================
+// MULTIPLAYER (PeerJS lobbies)
+// ============================================================
+const lobbyStatusEl = document.getElementById("lobby-status");
+const lobbyPlayersEl = document.getElementById("lobby-players");
+const lobbyCodeInput = document.getElementById("lobby-code");
+const lobbyCreateBtn = document.getElementById("lobby-create");
+const lobbyJoinBtn = document.getElementById("lobby-join");
+const lobbyLeaveBtn = document.getElementById("lobby-leave");
+
+const PEER_PREFIX = "adfm-";
+let lastStateBroadcast = 0;
+const STATE_INTERVAL_MS = 50;
+
+function setLobbyStatus(text, cls) {
+  if (!lobbyStatusEl) return;
+  lobbyStatusEl.textContent = text;
+  lobbyStatusEl.className = cls || "";
+}
+
+function updateLobbyPlayersUi() {
+  if (!lobbyPlayersEl) return;
+  if (!lobbyConnected) {
+    lobbyPlayersEl.textContent = "";
+    return;
+  }
+  const n = getLobbyPlayerCount();
+  lobbyPlayersEl.textContent = `Pilots in lobby: ${n}` + (lobbyCodeActive ? ` · CODE ${lobbyCodeActive}` : "");
+}
+
+function normalizeLobbyCode(raw) {
+  return String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+}
+
+function randomLobbyCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "";
+  for (let i = 0; i < 5; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+function destroyRemotePlayer(id) {
+  const rp = remotePlayers[id];
+  if (!rp) return;
+  scene.remove(rp.group);
+  delete remotePlayers[id];
+  updateLobbyPlayersUi();
+  updatePvpUi();
+  updatePveUi();
+  if (shouldSpawnPveEnemies()) {
+    while (enemies.length < MAX_ENEMIES) spawnEnemy();
+  } else if (lobbyConnected && getLobbyPlayerCount() > 1 && pvpEnabled) {
+    clearAllEnemies();
+  }
+}
+
+function clearRemotePlayers() {
+  for (const id of Object.keys(remotePlayers)) destroyRemotePlayer(id);
+}
+
+function ensureRemotePlayer(id) {
+  if (remotePlayers[id]) return remotePlayers[id];
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.ConeGeometry(4, 12, 8),
+    new THREE.MeshStandardMaterial({ color: 0xff6b6b, metalness: 0.35, roughness: 0.4, emissive: 0x441111, emissiveIntensity: 0.25 })
+  );
+  body.rotation.x = Math.PI / 2;
+  group.add(body);
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(7, 0.25, 8, 24),
+    new THREE.MeshBasicMaterial({ color: 0xff4d5a, transparent: true, opacity: 0.55 })
+  );
+  ring.rotation.x = Math.PI / 2;
+  group.add(ring);
+  scene.add(group);
+  remotePlayers[id] = {
+    group,
+    ring,
+    pvp: false,
+    hp: 100,
+    maxHp: 100,
+    lastSeen: performance.now()
+  };
+  updateLobbyPlayersUi();
+  updatePvpUi();
+  updatePveUi();
+  if (lobbyConnected && getLobbyPlayerCount() > 1 && pvpEnabled) clearAllEnemies();
+  return remotePlayers[id];
+}
+
+function rebuildRemoteShipVisual(rp, blocks) {
+  while (rp.group.children.length) rp.group.remove(rp.group.children[0]);
+  if (!blocks || !blocks.length) {
+    const body = new THREE.Mesh(
+      new THREE.ConeGeometry(4, 12, 8),
+      new THREE.MeshStandardMaterial({ color: 0xff6b6b, metalness: 0.35, roughness: 0.4 })
+    );
+    body.rotation.x = Math.PI / 2;
+    rp.group.add(body);
+  } else {
+    for (const b of blocks) {
+      const mesh = createBlockMesh(b.type);
+      mesh.position.set(b.gx * GRID, b.gy * GRID, b.gz * GRID);
+      applyRotationState(mesh, b.rot || 0);
+      // tint slightly red so remotes read as hostiles/allies distinctly
+      mesh.traverse((obj) => {
+        if (obj.isMesh && obj.material && obj.material.emissive) {
+          obj.material = obj.material.clone();
+          obj.material.emissive.setHex(0x331111);
+          obj.material.emissiveIntensity = Math.max(0.15, obj.material.emissiveIntensity || 0);
+        }
+      });
+      rp.group.add(mesh);
+    }
+  }
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(8, 0.22, 8, 24),
+    new THREE.MeshBasicMaterial({
+      color: rp.pvp ? 0xff4d5a : 0x3cf0c5,
+      transparent: true,
+      opacity: 0.55
+    })
+  );
+  ring.rotation.x = Math.PI / 2;
+  rp.ring = ring;
+  rp.group.add(ring);
+}
+
+function sendToAll(payload) {
+  const raw = JSON.stringify(payload);
+  for (const id of Object.keys(peerConnections)) {
+    const conn = peerConnections[id];
+    if (conn && conn.open) {
+      try { conn.send(raw); } catch (e) {}
+    }
+  }
+}
+
+broadcastLobbyState = function broadcastLobbyStateImpl() {
+  if (!lobbyConnected) return;
+  sendToAll({
+    type: "meta",
+    id: localPeerId,
+    pvp: pvpEnabled,
+    pve: pveEnabled,
+    hp: playerHp,
+    maxHp: playerMaxHp,
+    code: lobbyCodeActive,
+    players: getLobbyPlayerCount()
+  });
+};
+
+broadcastFire = function broadcastFireImpl(shots) {
+  if (!lobbyConnected || !shots || !shots.length) return;
+  sendToAll({
+    type: "fire",
+    id: localPeerId,
+    pvp: pvpEnabled,
+    shots
+  });
+};
+
+function handlePeerData(data, fromId) {
+  let msg = data;
+  if (typeof data === "string") {
+    try { msg = JSON.parse(data); } catch (e) { return; }
+  }
+  if (!msg || !msg.type) return;
+
+  if (msg.type === "state") {
+    const rp = ensureRemotePlayer(msg.id || fromId);
+    rp.group.position.set(msg.x, msg.y, msg.z);
+    rp.group.quaternion.set(msg.qx, msg.qy, msg.qz, msg.qw);
+    rp.pvp = !!msg.pvp;
+    rp.hp = msg.hp;
+    rp.maxHp = msg.maxHp;
+    rp.lastSeen = performance.now();
+    if (rp.ring && rp.ring.material) {
+      rp.ring.material.color.setHex(rp.pvp ? 0xff4d5a : 0x3cf0c5);
+    }
+    if (msg.blocks && msg.blocksVersion !== rp.blocksVersion) {
+      rp.blocksVersion = msg.blocksVersion;
+      rebuildRemoteShipVisual(rp, msg.blocks);
+    }
+    updateLobbyPlayersUi();
+    updatePvpUi();
+    if (lobbyConnected && getLobbyPlayerCount() > 1 && pvpEnabled) {
+      if (enemies.length) clearAllEnemies();
+    }
+    return;
+  }
+
+  if (msg.type === "fire" && Array.isArray(msg.shots)) {
+    for (const s of msg.shots) {
+      const origin = new THREE.Vector3(s.ox, s.oy, s.oz);
+      const dir = new THREE.Vector3(s.dx, s.dy, s.dz);
+      spawnProjectile(origin, dir, {
+        damage: s.damage,
+        projectileSpeed: s.speed,
+        projectileLife: s.life,
+        projectileSize: s.size,
+        projectileColor: s.color
+      }, false, { fromRemote: true, ownerId: msg.id || fromId });
+      const last = projectiles[projectiles.length - 1];
+      if (last) last.ownerPvp = !!msg.pvp;
+    }
+    return;
+  }
+
+  if (msg.type === "meta") {
+    const rp = ensureRemotePlayer(msg.id || fromId);
+    rp.pvp = !!msg.pvp;
+    rp.hp = msg.hp;
+    rp.maxHp = msg.maxHp;
+    if (rp.ring && rp.ring.material) rp.ring.material.color.setHex(rp.pvp ? 0xff4d5a : 0x3cf0c5);
+    updatePvpUi();
+    updatePveUi();
+  }
+}
+
+function wireConnection(conn) {
+  peerConnections[conn.peer] = conn;
+  conn.on("data", (data) => handlePeerData(data, conn.peer));
+  conn.on("close", () => {
+    delete peerConnections[conn.peer];
+    destroyRemotePlayer(conn.peer);
+  });
+  conn.on("open", () => {
+    ensureRemotePlayer(conn.peer);
+    broadcastLobbyState();
+    // send a full state soon
+    lastStateBroadcast = 0;
+    setLobbyStatus(`Linked with pilot · lobby ${lobbyCodeActive}`, "online");
+    updateLobbyPlayersUi();
+  });
+}
+
+function leaveLobby() {
+  for (const id of Object.keys(peerConnections)) {
+    try { peerConnections[id].close(); } catch (e) {}
+    delete peerConnections[id];
+  }
+  clearRemotePlayers();
+  if (localPeer) {
+    try { localPeer.destroy(); } catch (e) {}
+    localPeer = null;
+  }
+  lobbyConnected = false;
+  lobbyHost = false;
+  lobbyCodeActive = "";
+  localPeerId = "";
+  setLobbyStatus("Enter a code to create or join a lobby");
+  updateLobbyPlayersUi();
+  updatePvpUi();
+  updatePveUi();
+}
+
+function createPeer(id, asHost) {
+  if (typeof Peer === "undefined") {
+    setLobbyStatus("PeerJS failed to load — check network", "warn");
+    return;
+  }
+  leaveLobby();
+  lobbyHost = !!asHost;
+  lobbyCodeActive = normalizeLobbyCode(id.replace(PEER_PREFIX, ""));
+  setLobbyStatus(asHost ? "Opening lobby channel…" : "Connecting to lobby…", "warn");
+
+  localPeer = new Peer(asHost ? (PEER_PREFIX + lobbyCodeActive.toLowerCase()) : undefined, {
+    debug: 0
+  });
+
+  localPeer.on("open", (peerId) => {
+    localPeerId = peerId;
+    lobbyConnected = true;
+    if (asHost) {
+      setLobbyStatus(`Lobby live — share code ${lobbyCodeActive}`, "online");
+    } else {
+      const hostId = PEER_PREFIX + lobbyCodeActive.toLowerCase();
+      const conn = localPeer.connect(hostId, { reliable: true });
+      wireConnection(conn);
+      setLobbyStatus(`Joining ${lobbyCodeActive}…`, "warn");
+    }
+    updateLobbyPlayersUi();
+    broadcastLobbyState();
+  });
+
+  localPeer.on("connection", (conn) => {
+    wireConnection(conn);
+  });
+
+  localPeer.on("error", (err) => {
+    const msg = (err && err.type) ? err.type : "error";
+    setLobbyStatus(`Lobby error: ${msg}`, "warn");
+    if (msg === "unavailable-id" || msg === "peer-unavailable") {
+      setLobbyStatus("Code in use or not found — try another", "warn");
+    }
+  });
+}
+
+function createLobby() {
+  let code = normalizeLobbyCode(lobbyCodeInput && lobbyCodeInput.value);
+  if (!code) {
+    code = randomLobbyCode();
+    if (lobbyCodeInput) lobbyCodeInput.value = code;
+  }
+  createPeer(code, true);
+}
+
+function joinLobby() {
+  const code = normalizeLobbyCode(lobbyCodeInput && lobbyCodeInput.value);
+  if (!code || code.length < 3) {
+    setLobbyStatus("Enter a valid lobby code", "warn");
+    return;
+  }
+  createPeer(code, false);
+}
+
+syncMultiplayer = function syncMultiplayerImpl() {
+  if (!lobbyConnected) return;
+  const now = performance.now();
+
+  // Drop stale remotes
+  for (const id of Object.keys(remotePlayers)) {
+    if (now - remotePlayers[id].lastSeen > 8000) destroyRemotePlayer(id);
+  }
+
+  if (now - lastStateBroadcast < STATE_INTERVAL_MS) return;
+  lastStateBroadcast = now;
+
+  sendToAll({
+    type: "state",
+    id: localPeerId,
+    x: ship.position.x,
+    y: ship.position.y,
+    z: ship.position.z,
+    qx: ship.quaternion.x,
+    qy: ship.quaternion.y,
+    qz: ship.quaternion.z,
+    qw: ship.quaternion.w,
+    pvp: pvpEnabled,
+    pve: pveEnabled,
+    hp: playerHp,
+    maxHp: playerMaxHp,
+    blocks: shipBlocks,
+    blocksVersion
+  });
+};
+
+if (lobbyCreateBtn) lobbyCreateBtn.addEventListener("click", createLobby);
+if (lobbyJoinBtn) lobbyJoinBtn.addEventListener("click", joinLobby);
+if (lobbyLeaveBtn) lobbyLeaveBtn.addEventListener("click", leaveLobby);
+if (lobbyCodeInput) {
+  lobbyCodeInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") joinLobby();
+  });
 }
 
 // ============================================================
@@ -1870,8 +2507,10 @@ function animate() {
     updateHealCrates();
     updateProjectiles();
     updateTargetLock();
+    syncMultiplayer();
     renderer.render(scene, camera);
   }
 }
 updatePveUi();
+updatePvpUi();
 animate();
