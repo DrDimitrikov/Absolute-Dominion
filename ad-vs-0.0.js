@@ -2,12 +2,13 @@
 // BASIC SCENE SETUP (flight)
 // ============================================================
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 8000);
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 200000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 const editorCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+const BASE_FOV = 70;
 
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -35,7 +36,7 @@ scene.add(makeStarLayer(3000, 4000, 2.2, 0xffffff));
 scene.add(makeStarLayer(5000, 6000, 1.2, 0xaad4ff));
 scene.add(makeStarLayer(6000, 8000, 0.7, 0xffe9c4));
 
-const bgGeo = new THREE.SphereGeometry(6000, 32, 32);
+const bgGeo = new THREE.SphereGeometry(160000, 32, 32);
 const bgMat = new THREE.MeshBasicMaterial({ color: 0x060613, side: THREE.BackSide });
 scene.add(new THREE.Mesh(bgGeo, bgMat));
 
@@ -113,10 +114,195 @@ const planetDefs = [
     moon: { radius: 26, color: 0xffe6a0, orbitRadius: 250, orbitSpeed: 0.0038, phase: 5.0, tilt: -0.25, resourceId: "stardust", maxResources: 1300, name: "Dust Moon", emissive: 0x443300 } }
 ];
 
-for (const def of planetDefs) {
-  const planet = makePlanet(def.radius, def.color, def.pos);
-  planets.push(planet);
-  makeMoon(planet, def.radius, def.moon);
+// Far apart so cruise between systems is painful (~20+ min) — FTL is the intended travel.
+// Neighbor clusters on this ring are also tens of thousands of units apart.
+const FTL_RING_DIST = 72000;
+const clusters = [];
+let currentClusterId = "home";
+
+function makeClusterPlanetSet(seed, theme) {
+  // Deterministic-ish variety from seed without Math.random for stable world layout
+  const resCycle = ["iron", "oil", "plasma_crystal", "void_ice", "stardust"];
+  const planetsLocal = [];
+  const count = 3 + (seed % 2); // 3 or 4 planets
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2 + seed * 0.37;
+    const dist = 900 + ((seed * 17 + i * 91) % 700);
+    const y = ((seed * 13 + i * 47) % 280) - 140;
+    const resId = resCycle[(seed + i) % resCycle.length];
+    const res = RESOURCES.find(r => r.id === resId);
+    const moonColor = parseInt((res.color || "#aaaaaa").slice(1), 16);
+    planetsLocal.push({
+      radius: 90 + ((seed * 11 + i * 29) % 120),
+      color: theme.planetColors[i % theme.planetColors.length],
+      pos: new THREE.Vector3(Math.cos(a) * dist, y, Math.sin(a) * dist),
+      moon: {
+        radius: 20 + ((seed + i * 7) % 16),
+        color: moonColor,
+        orbitRadius: 170 + ((seed * 5 + i * 23) % 160),
+        orbitSpeed: 0.002 + ((seed + i) % 5) * 0.0005,
+        phase: (seed * 0.7 + i) % (Math.PI * 2),
+        tilt: ((seed + i) % 7) * 0.05 - 0.15,
+        resourceId: resId,
+        maxResources: 1100 + ((seed * 19 + i * 41) % 600),
+        name: `${theme.moonPrefix} ${["Alpha", "Beta", "Gamma", "Delta"][i]}`,
+        emissive: theme.emissive || 0x000000
+      }
+    });
+  }
+  return planetsLocal;
+}
+
+const DISTANT_CLUSTER_DEFS = [
+  { id: "ember_reach", name: "Ember Reach", tagline: "Ash-world forges & iron veins", color: "#ff7a45",
+    planetColors: [0xb85a32, 0xc97a40, 0x8a4020, 0xd4a06a], moonPrefix: "Cinder", emissive: 0x331100,
+    starColor: 0xff9944, starEmissive: 0xff6611 },
+  { id: "glacier_veil", name: "Glacier Veil", tagline: "Frozen giants & void ice", color: "#9ed6ff",
+    planetColors: [0x8eb8d8, 0xcfe8ff, 0x5a7a9a, 0xa8c8e0], moonPrefix: "Rime", emissive: 0x113355,
+    starColor: 0xa8d8ff, starEmissive: 0x66aaff },
+  { id: "violet_maw", name: "Violet Maw", tagline: "Plasma storms & crystal reefs", color: "#b266ff",
+    planetColors: [0x6b3fa0, 0x9b6bff, 0x4a2878, 0xc89bff], moonPrefix: "Shard", emissive: 0x331155,
+    starColor: 0xcc88ff, starEmissive: 0x9933ff },
+  { id: "amber_drift", name: "Amber Drift", tagline: "Dust belts & stardust blooms", color: "#ffc857",
+    planetColors: [0xc9a040, 0xe0c060, 0x8a7020, 0xffd88a], moonPrefix: "Gilt", emissive: 0x442200,
+    starColor: 0xffdd66, starEmissive: 0xffaa22 },
+  { id: "obsidian_gate", name: "Obsidian Gate", tagline: "Dark rock & oil seeps", color: "#8899aa",
+    planetColors: [0x2a2e38, 0x4a5060, 0x1a1e28, 0x6a7080], moonPrefix: "Pitch", emissive: 0x111122,
+    starColor: 0xdde6ff, starEmissive: 0x8899cc },
+  { id: "verdant_exodus", name: "Verdant Exodus", tagline: "Jungle worlds & raw ore", color: "#5dffa0",
+    planetColors: [0x3a7a4a, 0x5a9a60, 0x2a5a38, 0x7aba70], moonPrefix: "Canopy", emissive: 0x113311,
+    starColor: 0xfff0a8, starEmissive: 0xffcc44 },
+  { id: "crimson_shoals", name: "Crimson Shoals", tagline: "Rust seas & iron flats", color: "#ff4d5a",
+    planetColors: [0xa04040, 0xc06050, 0x702828, 0xd08070], moonPrefix: "Scar", emissive: 0x330000,
+    starColor: 0xff6644, starEmissive: 0xff2200 },
+  { id: "azure_helix", name: "Azure Helix", tagline: "Ocean giants & crystal rings", color: "#4db8ff",
+    planetColors: [0x2a6a9a, 0x4a90c0, 0x1a4a70, 0x70b0e0], moonPrefix: "Tide", emissive: 0x002244,
+    starColor: 0x88e0ff, starEmissive: 0x33aaff },
+  { id: "hollow_crown", name: "Hollow Crown", tagline: "Broken husks & rare ice", color: "#d0d8e8",
+    planetColors: [0x707888, 0x9098a8, 0x505868, 0xb0b8c8], moonPrefix: "Echo", emissive: 0x222233,
+    starColor: 0xe8f0ff, starEmissive: 0xaabbdd },
+  { id: "nova_thresh", name: "Nova Thresh", tagline: "Burning cores & stardust", color: "#ff88cc",
+    planetColors: [0xd06080, 0xff90b0, 0xa04060, 0xffb0d0], moonPrefix: "Flare", emissive: 0x440022,
+    starColor: 0xff99cc, starEmissive: 0xff4488 }
+];
+
+function makeSystemStar(cluster) {
+  const starColor = cluster.starColor != null ? cluster.starColor : 0xffe08a;
+  const starEmissive = cluster.starEmissive != null ? cluster.starEmissive : 0xffaa33;
+  const radius = cluster.starRadius != null ? cluster.starRadius : 140;
+
+  const group = new THREE.Group();
+  group.position.copy(cluster.center);
+
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(radius, 32, 32),
+    new THREE.MeshBasicMaterial({ color: starColor })
+  );
+  group.add(core);
+
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(radius * 1.35, 28, 28),
+    new THREE.MeshBasicMaterial({
+      color: starEmissive,
+      transparent: true,
+      opacity: 0.28,
+      depthWrite: false
+    })
+  );
+  group.add(glow);
+
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(radius * 1.85, 24, 24),
+    new THREE.MeshBasicMaterial({
+      color: starEmissive,
+      transparent: true,
+      opacity: 0.1,
+      depthWrite: false
+    })
+  );
+  group.add(halo);
+
+  const light = new THREE.PointLight(starColor, 1.4, 4500, 2);
+  light.position.set(0, 0, 0);
+  group.add(light);
+
+  group.userData.isSystemStar = true;
+  group.userData.clusterId = cluster.id;
+  scene.add(group);
+  return group;
+}
+
+function spawnClusterWorld(cluster) {
+  cluster.star = makeSystemStar(cluster);
+
+  const spawnedPlanets = [];
+  for (const def of cluster.planetDefs) {
+    const worldPos = cluster.center.clone().add(def.pos);
+    const planet = makePlanet(def.radius, def.color, worldPos);
+    planet.userData.clusterId = cluster.id;
+    planets.push(planet);
+    spawnedPlanets.push(planet);
+    const moon = makeMoon(planet, def.radius, def.moon);
+    moon.clusterId = cluster.id;
+  }
+  cluster.planets = spawnedPlanets;
+  return cluster;
+}
+
+// Home sector (spawn)
+clusters.push(spawnClusterWorld({
+  id: "home",
+  name: "Home Sector",
+  tagline: "Origin systems · spawn anchorage",
+  color: "#3cf0c5",
+  center: new THREE.Vector3(0, 0, 0),
+  arrivalOffset: new THREE.Vector3(0, 40, 280),
+  mapX: 0.5,
+  mapY: 0.5,
+  starColor: 0xffe6a0,
+  starEmissive: 0xffcc55,
+  starRadius: 160,
+  planetDefs: planetDefs.map(d => ({
+    radius: d.radius,
+    color: d.color,
+    pos: d.pos.clone(),
+    moon: { ...d.moon }
+  }))
+}));
+
+DISTANT_CLUSTER_DEFS.forEach((def, i) => {
+  const angle = (i / DISTANT_CLUSTER_DEFS.length) * Math.PI * 2 + 0.35;
+  // Stagger rings so systems aren't a neat circle — farther from home AND each other
+  const dist = FTL_RING_DIST + (i % 5) * 12000 + ((i * 7) % 3) * 4000;
+  const center = new THREE.Vector3(
+    Math.cos(angle) * dist,
+    ((i % 5) - 2) * 420,
+    Math.sin(angle) * dist
+  );
+  const mapAngle = angle;
+  const mapR = 0.30 + (i % 5) * 0.028;
+  clusters.push(spawnClusterWorld({
+    id: def.id,
+    name: def.name,
+    tagline: def.tagline,
+    color: def.color,
+    center,
+    arrivalOffset: new THREE.Vector3(220, 60, 280),
+    mapX: 0.5 + Math.cos(mapAngle) * mapR,
+    mapY: 0.5 + Math.sin(mapAngle) * mapR * 0.85,
+    starColor: def.starColor,
+    starEmissive: def.starEmissive,
+    starRadius: 130 + (i % 4) * 15,
+    planetDefs: makeClusterPlanetSet(i + 3, def)
+  }));
+});
+
+function getClusterById(id) {
+  return clusters.find(c => c.id === id);
+}
+
+function getArrivalPosition(cluster) {
+  return cluster.center.clone().add(cluster.arrivalOffset || new THREE.Vector3(80, 40, 120));
 }
 
 function updateMoons() {
@@ -128,6 +314,12 @@ function updateMoons() {
     if (!m.active && m.respawnAt && now >= m.respawnAt) {
       respawnMoon(m);
     }
+  }
+  // Soft pulse on system stars
+  for (const c of clusters) {
+    if (!c.star) continue;
+    const pulse = 1 + Math.sin(now * 0.0018 + (c.starRadius || 140) * 0.01) * 0.035;
+    c.star.scale.setScalar(pulse);
   }
 }
 
@@ -172,6 +364,7 @@ const placeholderMesh = new THREE.Mesh(
 );
 placeholderMesh.rotation.x = Math.PI / 2;
 ship.add(placeholderMesh);
+ship.position.set(0, 40, 320);
 scene.add(ship);
 
 scene.add(new THREE.AmbientLight(0x404060, 1.5));
@@ -899,8 +1092,9 @@ function damagePlayer(amount) {
   playerHp = Math.max(0, playerHp - amount);
   updateHealthHud();
   if (playerHp <= 0) {
-    // Soft respawn near origin
-    ship.position.set(0, 0, 0);
+    // Soft respawn near home star anchorage
+    ship.position.set(0, 40, 320);
+    currentClusterId = "home";
     playerHp = playerMaxHp;
     clearTargetLock();
     updateHealthHud();
@@ -1808,10 +2002,14 @@ window.addEventListener("keydown", (e) => {
     if (miningPhase === "mining") return; // locked until moon depleted
     toggleEditor();
   }
-  if (k === "c" && !e.repeat && !editorOpen) toggleMouseLock();
-  if (k === "f" && !e.repeat && !editorOpen) fireWeapons();
-  if (k === "t" && !e.repeat && !editorOpen) lockClosestTarget();
-  if (k === "m" && !e.repeat && !editorOpen) onMiningKeyDown();
+  if (k === "c" && !e.repeat && !editorOpen && !ftlCutscene && !ftlMapOpen) toggleMouseLock();
+  if (k === "f" && !e.repeat && !editorOpen && !ftlCutscene && !ftlMapOpen) fireWeapons();
+  if (k === "t" && !e.repeat && !editorOpen && !ftlCutscene && !ftlMapOpen) lockClosestTarget();
+  if (k === "m" && !e.repeat && !editorOpen && !ftlCutscene && !ftlMapOpen) onMiningKeyDown();
+  if (k === "r" && !e.repeat && !editorOpen && !ftlCutscene) toggleFtlMap();
+  if (k === "escape" && !e.repeat) {
+    if (ftlMapOpen) closeFtlMap();
+  }
 
   if (editorOpen) {
     if (k === "r" && !e.repeat) {
@@ -1830,6 +2028,8 @@ window.addEventListener("keyup", (e) => {
 });
 
 function toggleEditor() {
+  if (ftlCutscene) return;
+  if (ftlMapOpen) closeFtlMap();
   editorOpen = !editorOpen;
 
   const editorUiEl = document.getElementById("editor-ui");
@@ -2489,6 +2689,417 @@ if (lobbyCodeInput) {
 }
 
 // ============================================================
+// FTL NAVIGATION + CINEMATIC JUMP
+// ============================================================
+let ftlMapOpen = false;
+let ftlCutscene = null;
+let ftlSelectedId = null;
+const ftlMapEl = document.getElementById("ftl-map");
+const ftlNodesEl = document.getElementById("ftl-nodes");
+const ftlRoutesEl = document.getElementById("ftl-routes");
+const ftlStarsCanvas = document.getElementById("ftl-stars");
+const ftlSelectionEl = document.getElementById("ftl-selection");
+const ftlJumpBtn = document.getElementById("ftl-jump-btn");
+const ftlCinematicEl = document.getElementById("ftl-cinematic");
+const ftlStreaksEl = document.getElementById("ftl-streaks");
+const ftlFlashEl = document.getElementById("ftl-flash");
+const ftlCinePhaseEl = document.getElementById("ftl-cine-phase");
+const ftlCineDestEl = document.getElementById("ftl-cine-dest");
+const ftlCineEtaEl = document.getElementById("ftl-cine-eta");
+const ftlCineTitleEl = document.getElementById("ftl-cine-title");
+
+const _ftlCamPos = new THREE.Vector3();
+const _ftlLook = new THREE.Vector3();
+const _ftlTmp = new THREE.Vector3();
+
+function easeInCubic(t) { return t * t * t; }
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function setHudVisible(visible) {
+  const display = visible ? "" : "none";
+  const ids = ["combat-box", "lobby-box", "center-hud", "cargo-hud", "controls-box", "crosshair", "brand-mark"];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = visible ? (id === "crosshair" || id === "brand-mark" ? "" : "block") : "none";
+  }
+  if (visible) {
+    const combat = document.getElementById("combat-box");
+    const lobby = document.getElementById("lobby-box");
+    const center = document.getElementById("center-hud");
+    const cargo = document.getElementById("cargo-hud");
+    const controls = document.getElementById("controls-box");
+    if (combat) combat.style.display = "block";
+    if (lobby) lobby.style.display = "block";
+    if (center) center.style.display = "block";
+    if (cargo) cargo.style.display = "block";
+    if (controls) controls.style.display = "block";
+    if (crosshairEl) crosshairEl.style.display = "block";
+    const brand = document.getElementById("brand-mark");
+    if (brand) brand.style.display = "block";
+  }
+}
+
+function drawFtlStars() {
+  if (!ftlStarsCanvas) return;
+  const wrap = document.getElementById("ftl-canvas-wrap");
+  if (!wrap) return;
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  if (w < 10 || h < 10) return;
+  ftlStarsCanvas.width = w;
+  ftlStarsCanvas.height = h;
+  const ctx = ftlStarsCanvas.getContext("2d");
+  ctx.clearRect(0, 0, w, h);
+  for (let i = 0; i < 180; i++) {
+    const x = (Math.sin(i * 12.9898) * 43758.5453 % 1 + 1) % 1 * w;
+    const y = (Math.sin(i * 78.233) * 93758.1234 % 1 + 1) % 1 * h;
+    const r = 0.6 + (i % 3) * 0.5;
+    ctx.fillStyle = i % 7 === 0 ? "rgba(60,240,197,0.55)" : "rgba(228,243,255,0.45)";
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function refreshFtlMapUi() {
+  if (!ftlNodesEl || !ftlRoutesEl) return;
+  ftlNodesEl.innerHTML = "";
+  ftlRoutesEl.innerHTML = "";
+  const wrap = document.getElementById("ftl-canvas-wrap");
+  if (!wrap) return;
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  ftlRoutesEl.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  ftlRoutesEl.setAttribute("width", w);
+  ftlRoutesEl.setAttribute("height", h);
+
+  const home = getClusterById("home");
+  const hx = home.mapX * w;
+  const hy = home.mapY * h;
+
+  for (const c of clusters) {
+    if (c.id === "home") continue;
+    const x = c.mapX * w;
+    const y = c.mapY * h;
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", hx);
+    line.setAttribute("y1", hy);
+    line.setAttribute("x2", x);
+    line.setAttribute("y2", y);
+    line.setAttribute("stroke", "rgba(126,200,255,0.12)");
+    line.setAttribute("stroke-width", "1");
+    line.setAttribute("stroke-dasharray", "4 6");
+    ftlRoutesEl.appendChild(line);
+  }
+
+  for (const c of clusters) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ftl-node" +
+      (c.id === currentClusterId ? " current" : "") +
+      (c.id === ftlSelectedId ? " selected" : "");
+    btn.style.left = (c.mapX * 100) + "%";
+    btn.style.top = (c.mapY * 100) + "%";
+    btn.style.setProperty("--node-color", c.color);
+    btn.innerHTML = `<span class="ring"></span><span class="core"></span><span class="label">${c.name}</span>`;
+    btn.title = c.tagline;
+    btn.addEventListener("click", () => selectFtlCluster(c.id));
+    ftlNodesEl.appendChild(btn);
+  }
+
+  updateFtlSelectionPanel();
+}
+
+function updateFtlSelectionPanel() {
+  if (!ftlSelectionEl || !ftlJumpBtn) return;
+  const c = ftlSelectedId ? getClusterById(ftlSelectedId) : null;
+  if (!c) {
+    ftlSelectionEl.innerHTML = "Select a cluster to plot an FTL course";
+    ftlJumpBtn.classList.remove("visible");
+    return;
+  }
+  if (c.id === currentClusterId) {
+    ftlSelectionEl.innerHTML = `<strong>${c.name}</strong>You are already in this cluster`;
+    ftlJumpBtn.classList.remove("visible");
+    return;
+  }
+  const dist = ship.position.distanceTo(getArrivalPosition(c));
+  const etaMin = (dist / (baseMoveSpeed * 60) / 60).toFixed(1);
+  ftlSelectionEl.innerHTML =
+    `<strong>${c.name}</strong>${c.tagline}<br>Cruise ETA ~${etaMin} min · FTL transit instantaneous`;
+  ftlJumpBtn.classList.add("visible");
+}
+
+function selectFtlCluster(id) {
+  ftlSelectedId = id;
+  refreshFtlMapUi();
+}
+
+function openFtlMap() {
+  if (editorOpen || ftlCutscene) return;
+  ftlMapOpen = true;
+  ftlSelectedId = currentClusterId;
+  if (mouseLocked) document.exitPointerLock();
+  if (miningPhase === "approaching" || miningPhase === "focused") {
+    stopMining("FTL map opened");
+  }
+  setHudVisible(false);
+  if (ftlMapEl) ftlMapEl.classList.add("open");
+  requestAnimationFrame(() => {
+    drawFtlStars();
+    refreshFtlMapUi();
+  });
+}
+
+function closeFtlMap() {
+  ftlMapOpen = false;
+  if (ftlMapEl) ftlMapEl.classList.remove("open");
+  if (!ftlCutscene && !editorOpen) setHudVisible(true);
+}
+
+function toggleFtlMap() {
+  if (ftlMapOpen) closeFtlMap();
+  else openFtlMap();
+}
+
+function startFtlJump(clusterId) {
+  const cluster = getClusterById(clusterId);
+  if (!cluster || cluster.id === currentClusterId || ftlCutscene) return;
+
+  closeFtlMap();
+  if (mouseLocked) document.exitPointerLock();
+  if (miningPhase !== "idle") stopMining("FTL jump engaged");
+  clearTargetLock();
+
+  const dest = getArrivalPosition(cluster);
+  const departDir = dest.clone().sub(ship.position);
+  if (departDir.lengthSq() < 0.001) departDir.set(0, 0, -1);
+  departDir.normalize();
+
+  ftlCutscene = {
+    phase: "spool",
+    t0: performance.now(),
+    clusterId: cluster.id,
+    name: cluster.name,
+    fromPos: ship.position.clone(),
+    destPos: dest,
+    departDir,
+    arriveDir: departDir.clone(),
+    camDist0: camDistance,
+    camYaw0: camYaw,
+    camPitch0: camPitch
+  };
+
+  setHudVisible(false);
+  if (ftlCinematicEl) ftlCinematicEl.classList.add("active");
+  if (ftlCineDestEl) ftlCineDestEl.textContent = cluster.name;
+  if (ftlCinePhaseEl) ftlCinePhaseEl.textContent = "SPOOLING FTL DRIVE";
+  if (ftlCineEtaEl) ftlCineEtaEl.textContent = "ALIGNING VECTOR";
+  if (ftlCineTitleEl) ftlCineTitleEl.style.opacity = "1";
+  showFtlJumpToast(cluster.name);
+}
+
+function showFtlJumpToast(systemName) {
+  const toast = document.getElementById("ftl-toast");
+  const msg = document.getElementById("ftl-toast-msg");
+  if (!toast || !msg) return;
+  msg.innerHTML = `Initiating FTL jump to <span>${systemName}</span>`;
+  toast.classList.add("show");
+  clearTimeout(showFtlJumpToast._timer);
+  showFtlJumpToast._timer = setTimeout(() => {
+    toast.classList.remove("show");
+  }, 4200);
+}
+
+function endFtlCutscene() {
+  const cluster = getClusterById(ftlCutscene.clusterId);
+  currentClusterId = ftlCutscene.clusterId;
+  ship.position.copy(ftlCutscene.destPos);
+
+  // Face into the cluster center
+  tempFacingObj.position.copy(ship.position);
+  tempFacingObj.lookAt(cluster.center);
+  ship.quaternion.copy(tempFacingObj.quaternion);
+
+  camDistance = Math.max(40, Math.min(90, ftlCutscene.camDist0));
+  const into = cluster.center.clone().sub(ship.position).normalize();
+  camPitch = Math.asin(Math.max(-1, Math.min(1, -into.y))) * 0.35 + 0.25;
+  camYaw = Math.atan2(-into.x, -into.z);
+  camera.fov = BASE_FOV;
+  camera.updateProjectionMatrix();
+
+  if (ftlStreaksEl) ftlStreaksEl.style.opacity = "0";
+  if (ftlFlashEl) ftlFlashEl.style.opacity = "0";
+  if (ftlCineTitleEl) ftlCineTitleEl.style.opacity = "0";
+  if (ftlCinematicEl) ftlCinematicEl.classList.remove("active");
+
+  ftlCutscene = null;
+  setHudVisible(true);
+  updateCamera();
+}
+
+function updateFtlCutscene(now) {
+  if (!ftlCutscene) return false;
+
+  const t = (now - ftlCutscene.t0) / 1000;
+  // Timeline (seconds):
+  // 0.0–1.4  spool / dramatic framing
+  // 1.4–3.0  launch streak
+  // 3.0–3.55 warp flash + teleport
+  // 3.55–5.4 arrival streak
+  // 5.4–6.8 hard brake + settle
+  const dir = ftlCutscene.departDir;
+
+  if (t < 1.4) {
+    const u = easeInOutCubic(t / 1.4);
+    if (ftlCinePhaseEl) ftlCinePhaseEl.textContent = "SPOOLING FTL DRIVE";
+    if (ftlCineEtaEl) ftlCineEtaEl.textContent = "HOLDING FOR JUMP WINDOW";
+    if (ftlCineTitleEl) ftlCineTitleEl.style.opacity = String(Math.min(1, t * 2));
+
+    // Align ship toward jump vector
+    tempFacingObj.position.copy(ship.position);
+    tempFacingObj.lookAt(ship.position.clone().add(dir));
+    ship.quaternion.slerp(tempFacingObj.quaternion, 0.08 + u * 0.12);
+
+    // Cinematic orbit cam pulling wide
+    const yaw = ftlCutscene.camYaw0 + u * 0.9;
+    const pitch = lerp(ftlCutscene.camPitch0, 0.15, u);
+    const dist = lerp(ftlCutscene.camDist0, 95, u);
+    _ftlCamPos.set(
+      Math.sin(yaw) * Math.cos(pitch),
+      Math.sin(pitch),
+      Math.cos(yaw) * Math.cos(pitch)
+    ).multiplyScalar(dist).add(ship.position);
+    camera.position.copy(_ftlCamPos);
+    camera.lookAt(ship.position.clone().add(dir.clone().multiplyScalar(18)));
+    camera.fov = lerp(BASE_FOV, 62, u);
+    camera.updateProjectionMatrix();
+    if (ftlStreaksEl) ftlStreaksEl.style.opacity = String(u * 0.15);
+  } else if (t < 3.0) {
+    const u = easeInCubic((t - 1.4) / 1.6);
+    if (ftlCinePhaseEl) ftlCinePhaseEl.textContent = "DEPARTURE";
+    if (ftlCineEtaEl) ftlCineEtaEl.textContent = "ENGAGING MAIN THRUST";
+    if (ftlCineTitleEl) ftlCineTitleEl.style.opacity = "1";
+
+    const speed = lerp(2, 95, u);
+    ship.position.addScaledVector(dir, speed);
+
+    tempFacingObj.position.copy(ship.position);
+    tempFacingObj.lookAt(ship.position.clone().add(dir));
+    ship.quaternion.copy(tempFacingObj.quaternion);
+
+    // Chase cam from behind, FOV punch
+    _ftlCamPos.copy(ship.position).addScaledVector(dir, -lerp(55, 28, u));
+    _ftlCamPos.y += lerp(18, 6, u);
+    camera.position.lerp(_ftlCamPos, 0.35);
+    camera.lookAt(ship.position.clone().addScaledVector(dir, 40));
+    camera.fov = lerp(62, 110, u);
+    camera.updateProjectionMatrix();
+
+    if (ftlStreaksEl) {
+      ftlStreaksEl.style.opacity = String(0.2 + u * 0.85);
+      ftlStreaksEl.style.backgroundSize = `${lerp(40, 8, u)}px 100%`;
+    }
+    if (ftlFlashEl) ftlFlashEl.style.opacity = String(u > 0.85 ? (u - 0.85) / 0.15 * 0.4 : 0);
+  } else if (t < 3.55) {
+    const u = (t - 3.0) / 0.55;
+    if (ftlCinePhaseEl) ftlCinePhaseEl.textContent = "HYPERSPACE";
+    if (ftlCineEtaEl) ftlCineEtaEl.textContent = "TRANSLATING COORDINATES";
+    if (ftlFlashEl) ftlFlashEl.style.opacity = String(u < 0.5 ? u * 2 : 2 - u * 2);
+    if (ftlStreaksEl) ftlStreaksEl.style.opacity = "1";
+
+    // Mid-flash teleport to approach corridor
+    if (u >= 0.45 && !ftlCutscene.teleported) {
+      ftlCutscene.teleported = true;
+      const approach = ftlCutscene.destPos.clone().addScaledVector(dir, -900);
+      ship.position.copy(approach);
+      currentClusterId = ftlCutscene.clusterId;
+    }
+
+    camera.position.copy(ship.position).addScaledVector(dir, -30).add(new THREE.Vector3(0, 8, 0));
+    camera.lookAt(ship.position.clone().addScaledVector(dir, 50));
+    camera.fov = 120;
+    camera.updateProjectionMatrix();
+  } else if (t < 5.4) {
+    const u = easeOutCubic((t - 3.55) / 1.85);
+    if (ftlCinePhaseEl) ftlCinePhaseEl.textContent = "ARRIVAL";
+    if (ftlCineEtaEl) ftlCineEtaEl.textContent = `ENTERING ${ftlCutscene.name.toUpperCase()}`;
+    if (ftlFlashEl) ftlFlashEl.style.opacity = String(Math.max(0, 0.35 - u * 0.4));
+    if (ftlStreaksEl) {
+      ftlStreaksEl.style.opacity = String(1 - u * 0.55);
+      ftlStreaksEl.style.backgroundSize = `${lerp(8, 28, u)}px 100%`;
+    }
+    if (ftlCineTitleEl) ftlCineTitleEl.style.opacity = "1";
+
+    // Race toward destination, slight overshoot setup
+    const startApproach = ftlCutscene.destPos.clone().addScaledVector(dir, -900);
+    const overshoot = ftlCutscene.destPos.clone().addScaledVector(dir, 40);
+    ship.position.lerpVectors(startApproach, overshoot, u);
+
+    tempFacingObj.position.copy(ship.position);
+    tempFacingObj.lookAt(ship.position.clone().add(dir));
+    ship.quaternion.copy(tempFacingObj.quaternion);
+
+    _ftlCamPos.copy(ship.position).addScaledVector(dir, -lerp(40, 70, u));
+    _ftlCamPos.y += lerp(10, 22, u);
+    // Lateral cinematic offset
+    _ftlTmp.crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize().multiplyScalar(lerp(8, 25, u));
+    _ftlCamPos.add(_ftlTmp);
+    camera.position.copy(_ftlCamPos);
+    camera.lookAt(ship.position);
+    camera.fov = lerp(110, 78, u);
+    camera.updateProjectionMatrix();
+  } else if (t < 6.85) {
+    const u = easeOutCubic((t - 5.4) / 1.45);
+    if (ftlCinePhaseEl) ftlCinePhaseEl.textContent = "HARD BRAKE";
+    if (ftlCineEtaEl) ftlCineEtaEl.textContent = "VELOCITY DUMP · SYSTEMS NOMINAL";
+    if (ftlStreaksEl) ftlStreaksEl.style.opacity = String(Math.max(0, 0.45 - u));
+    if (ftlFlashEl) ftlFlashEl.style.opacity = String(u < 0.12 ? (0.12 - u) * 2.5 : 0);
+    if (ftlCineTitleEl) ftlCineTitleEl.style.opacity = String(1 - Math.max(0, (u - 0.55) / 0.45));
+
+    const overshoot = ftlCutscene.destPos.clone().addScaledVector(dir, 40);
+    // Sudden settle onto dest — snap then ease residual
+    const brakeT = Math.min(1, u * 1.8);
+    ship.position.lerpVectors(overshoot, ftlCutscene.destPos, easeOutCubic(Math.min(1, brakeT)));
+
+    // Camera whip + shake on impact
+    const shake = (1 - u) * (1 - u) * 3.5;
+    const sx = (Math.sin(now * 0.09) * shake);
+    const sy = (Math.cos(now * 0.11) * shake);
+    _ftlCamPos.copy(ship.position);
+    _ftlCamPos.x += Math.sin(camYaw) * Math.cos(0.25) * lerp(70, 48, u) + sx;
+    _ftlCamPos.y += Math.sin(0.25) * lerp(70, 48, u) + 12 + sy;
+    _ftlCamPos.z += Math.cos(camYaw) * Math.cos(0.25) * lerp(70, 48, u);
+    // Prefer look-from behind using dest orientation
+    const back = dir.clone().multiplyScalar(-lerp(55, 42, u));
+    camera.position.copy(ship.position).add(back).add(new THREE.Vector3(sx, 14 + sy, 0));
+    camera.lookAt(ship.position.clone().add(new THREE.Vector3(0, 2, 0)));
+    camera.fov = lerp(78, BASE_FOV, u);
+    camera.updateProjectionMatrix();
+  } else {
+    endFtlCutscene();
+  }
+
+  return true;
+}
+
+if (ftlJumpBtn) {
+  ftlJumpBtn.addEventListener("click", () => {
+    if (ftlSelectedId) startFtlJump(ftlSelectedId);
+  });
+}
+window.addEventListener("resize", () => {
+  if (ftlMapOpen) {
+    drawFtlStars();
+    refreshFtlMapUi();
+  }
+});
+
+// ============================================================
 // MAIN LOOP
 // ============================================================
 function animate() {
@@ -2499,6 +3110,12 @@ function animate() {
   if (editorOpen) {
     updateEditorCamera();
     renderer.render(editorScene, editorCamera);
+  } else if (updateFtlCutscene(performance.now())) {
+    renderer.render(scene, camera);
+  } else if (ftlMapOpen) {
+    // Freeze flight while map is open; keep a live backdrop render
+    updateCamera();
+    renderer.render(scene, camera);
   } else {
     updateMovement();
     updateMining();
