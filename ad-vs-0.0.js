@@ -18,23 +18,54 @@ window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// --- Layered starfield ---
+// --- Layered starfield (spread across full FTL map, not just spawn) ---
+const STARFIELD_HALF = 190000;
+const starfieldFollow = new THREE.Group();
+scene.add(starfieldFollow);
+
 function makeStarLayer(count, spread, size, color) {
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(count * 3);
-  for (let i = 0; i < count * 3; i++) {
-    positions[i] = (Math.random() - 0.5) * spread;
+  for (let i = 0; i < count; i++) {
+    const i3 = i * 3;
+    // Uniform-ish volume fill (reject center bias from naive cube alone with spherical shell mix)
+    if (i % 3 === 0) {
+      // Spherical shell points for even sky coverage
+      const u = Math.random();
+      const v = Math.random();
+      const theta = 2 * Math.PI * u;
+      const phi = Math.acos(2 * v - 1);
+      const r = (0.15 + Math.random() * 0.85) * (spread * 0.5);
+      positions[i3] = r * Math.sin(phi) * Math.cos(theta);
+      positions[i3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      positions[i3 + 2] = r * Math.cos(phi);
+    } else {
+      positions[i3] = (Math.random() - 0.5) * spread;
+      positions[i3 + 1] = (Math.random() - 0.5) * spread;
+      positions[i3 + 2] = (Math.random() - 0.5) * spread;
+    }
   }
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   const material = new THREE.PointsMaterial({
     color: color, size: size, transparent: true, opacity: 0.9,
-    blending: THREE.AdditiveBlending, depthWrite: false
+    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
   });
   return new THREE.Points(geometry, material);
 }
-scene.add(makeStarLayer(3000, 4000, 2.2, 0xffffff));
-scene.add(makeStarLayer(5000, 6000, 1.2, 0xaad4ff));
-scene.add(makeStarLayer(6000, 8000, 0.7, 0xffe9c4));
+
+// Map-wide backdrop stars (visible between / around distant clusters)
+scene.add(makeStarLayer(8000, STARFIELD_HALF * 2, 3.2, 0xffffff));
+scene.add(makeStarLayer(12000, STARFIELD_HALF * 2, 1.8, 0xaad4ff));
+scene.add(makeStarLayer(14000, STARFIELD_HALF * 2, 1.0, 0xffe9c4));
+
+// Local bubble that follows the ship so every system has dense nearby stars
+starfieldFollow.add(makeStarLayer(2500, 9000, 2.0, 0xffffff));
+starfieldFollow.add(makeStarLayer(3500, 14000, 1.1, 0xaad4ff));
+starfieldFollow.add(makeStarLayer(4000, 20000, 0.7, 0xffe9c4));
+
+function updateStarfieldFollow() {
+  starfieldFollow.position.copy(ship.position);
+}
 
 const bgGeo = new THREE.SphereGeometry(160000, 32, 32);
 const bgMat = new THREE.MeshBasicMaterial({ color: 0x060613, side: THREE.BackSide });
@@ -1069,6 +1100,23 @@ function updateEditorCamera() {
 }
 
 // ============================================================
+// DEV CHEATS (stat overrides — visuals unchanged)
+// ============================================================
+const DEV_CODE = "drdonut67";
+const devCheats = {
+  maxHp: null,
+  cargoCapacity: null,
+  speedMult: null,
+  mineMult: null,
+  damageMult: null,
+  boostMax: null
+};
+
+function getBoostMax() {
+  return (devCheats.boostMax != null) ? devCheats.boostMax : BOOST_MAX;
+}
+
+// ============================================================
 // PLAYER HEALTH
 // ============================================================
 let playerMaxHp = 100;
@@ -1083,7 +1131,8 @@ const targetReadoutEl = document.getElementById("target-readout");
 const crosshairEl = document.getElementById("crosshair");
 
 function refreshPlayerMaxHealth(resetCurrent) {
-  playerMaxHp = computeHullHpFromBlocks(shipBlocks);
+  const hull = computeHullHpFromBlocks(shipBlocks);
+  playerMaxHp = (devCheats.maxHp != null) ? devCheats.maxHp : hull;
   if (resetCurrent || playerHp > playerMaxHp) playerHp = playerMaxHp;
   updateHealthHud();
 }
@@ -1109,15 +1158,16 @@ function updateHealthHud() {
 }
 
 function updateBoostHud() {
-  // Map 1x..3x onto the bar
-  const pct = ((boostFactor - 1) / (BOOST_MAX - 1)) * 100;
+  // Map 1x..boostMax onto the bar
+  const maxB = getBoostMax();
+  const pct = ((boostFactor - 1) / Math.max(0.001, maxB - 1)) * 100;
   boostFillEl.style.width = Math.max(4, pct) + "%";
   boostTextEl.textContent = `${boostFactor.toFixed(1)}x`;
 }
 
-// Shift spool boost (1x → 3x)
+// Shift spool boost (1x → boost max)
 let boostFactor = 1.0;
-const BOOST_MAX = 3;
+let BOOST_MAX = 3;
 const BOOST_RAMP_UP = 0.018;
 const BOOST_RAMP_DOWN = 0.028;
 const baseMoveSpeed = 1.0;
@@ -1155,6 +1205,7 @@ const cargoListEl = document.getElementById("cargo-list");
 const miningStatusEl = document.getElementById("mining-status");
 
 function getCargoCapacity() {
+  if (devCheats.cargoCapacity != null) return devCheats.cargoCapacity;
   let cap = 200;
   for (const b of shipBlocks) {
     const def = blockTypeById(b.type);
@@ -1253,7 +1304,8 @@ function getMiningRate() {
     const def = blockTypeById(b.type);
     if (def && def.mineRate) rate += def.mineRate;
   }
-  return rate;
+  const mult = (devCheats.mineMult != null) ? devCheats.mineMult : 1;
+  return rate * mult;
 }
 
 function setMiningStatus(text, active) {
@@ -1994,6 +2046,12 @@ let mouseLocked = false;
 let lastX = 0, lastY = 0;
 
 window.addEventListener("keydown", (e) => {
+  // Dev panel open: ignore all game binds so typing the code / stats works
+  if (isDevPanelOpen()) {
+    if (e.key.toLowerCase() === "escape" && !e.repeat) closeDevPanel();
+    return;
+  }
+
   const k = e.key.toLowerCase();
   keys[k] = true;
   if (e.key === "Shift") keys["shift"] = true;
@@ -2021,11 +2079,21 @@ window.addEventListener("keydown", (e) => {
   }
 });
 window.addEventListener("keyup", (e) => {
+  if (isDevPanelOpen()) return;
+
   const k = e.key.toLowerCase();
   keys[k] = false;
   if (e.key === "Shift") keys["shift"] = false;
   if (k === "m" && !editorOpen) onMiningKeyUp();
 });
+
+function isDevPanelOpen() {
+  return !!(devPanelEl && devPanelEl.classList.contains("open"));
+}
+
+function clearHeldKeys() {
+  for (const k of Object.keys(keys)) keys[k] = false;
+}
 
 function toggleEditor() {
   if (ftlCutscene) return;
@@ -2151,8 +2219,9 @@ function getShipForward() {
 }
 
 function updateBoostFactor() {
+  const maxB = getBoostMax();
   if (keys["shift"]) {
-    boostFactor = Math.min(BOOST_MAX, boostFactor + BOOST_RAMP_UP);
+    boostFactor = Math.min(maxB, boostFactor + BOOST_RAMP_UP);
   } else {
     boostFactor = Math.max(1, boostFactor - BOOST_RAMP_DOWN);
   }
@@ -2160,10 +2229,12 @@ function updateBoostFactor() {
 }
 
 function getCurrentMoveSpeed() {
-  return baseMoveSpeed * getTopSpeedMultiplier() * boostFactor;
+  const cheat = (devCheats.speedMult != null) ? devCheats.speedMult : 1;
+  return baseMoveSpeed * getTopSpeedMultiplier() * boostFactor * cheat;
 }
 
 function updateMovement() {
+  if (isDevPanelOpen()) return;
   updateBoostFactor();
   if (miningPhase === "mining" || miningPhase === "approaching") return;
 
@@ -2229,7 +2300,9 @@ function spawnProjectile(origin, direction, def, fromEnemy, meta = {}) {
     mesh,
     velocity: direction.clone().normalize().multiplyScalar(def.projectileSpeed || 6),
     life: def.projectileLife || 90,
-    damage: def.damage || 8,
+    damage: (def.damage || 8) * (
+      (!fromEnemy && !meta.fromRemote && devCheats.damageMult != null) ? devCheats.damageMult : 1
+    ),
     fromEnemy: !!fromEnemy,
     fromRemote: !!meta.fromRemote,
     ownerId: meta.ownerId || null,
@@ -3100,12 +3173,195 @@ window.addEventListener("resize", () => {
 });
 
 // ============================================================
+// DEV PANEL UI
+// ============================================================
+let devAuthed = false;
+const settingsGearEl = document.getElementById("settings-gear");
+const devPanelEl = document.getElementById("dev-panel");
+const devCodeInput = document.getElementById("dev-code-input");
+const devCodeSubmit = document.getElementById("dev-code-submit");
+const devCodeStatus = document.getElementById("dev-code-status");
+const devMenuStatus = document.getElementById("dev-menu-status");
+
+function openDevPanel() {
+  if (!devPanelEl) return;
+  if (mouseLocked) document.exitPointerLock();
+  clearHeldKeys();
+  if (miningPhase === "approaching" || miningPhase === "focused") {
+    stopMining("Dev panel opened");
+  }
+  devPanelEl.classList.add("open");
+  if (devAuthed) {
+    devPanelEl.classList.remove("gate");
+    devPanelEl.classList.add("authed");
+    syncDevInputsFromCheats();
+  } else {
+    devPanelEl.classList.add("gate");
+    devPanelEl.classList.remove("authed");
+    if (devCodeInput) {
+      devCodeInput.value = "";
+      setTimeout(() => devCodeInput.focus(), 30);
+    }
+  }
+}
+
+function closeDevPanel() {
+  if (!devPanelEl) return;
+  devPanelEl.classList.remove("open");
+}
+
+function toggleDevPanel() {
+  if (!devPanelEl) return;
+  if (devPanelEl.classList.contains("open")) closeDevPanel();
+  else openDevPanel();
+}
+
+function syncDevInputsFromCheats() {
+  const hull = computeHullHpFromBlocks(shipBlocks);
+  const setVal = (id, v) => {
+    const el = document.getElementById(id);
+    if (el) el.value = v;
+  };
+  setVal("dev-stat-hp", devCheats.maxHp != null ? devCheats.maxHp : playerMaxHp || hull);
+  setVal("dev-stat-cargo", devCheats.cargoCapacity != null ? devCheats.cargoCapacity : getCargoCapacity());
+  setVal("dev-stat-speed", devCheats.speedMult != null ? devCheats.speedMult : 1);
+  setVal("dev-stat-mine", devCheats.mineMult != null ? devCheats.mineMult : 1);
+  setVal("dev-stat-damage", devCheats.damageMult != null ? devCheats.damageMult : 1);
+  setVal("dev-stat-boost", getBoostMax());
+}
+
+function readDevNumber(id) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const n = parseFloat(el.value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function applyDevStat(stat) {
+  if (!devAuthed) return;
+  if (stat === "hp") {
+    const n = readDevNumber("dev-stat-hp");
+    if (n == null || n < 1) return;
+    devCheats.maxHp = Math.floor(n);
+    playerMaxHp = devCheats.maxHp;
+    playerHp = playerMaxHp;
+    updateHealthHud();
+  } else if (stat === "cargo") {
+    const n = readDevNumber("dev-stat-cargo");
+    if (n == null || n < 0) return;
+    devCheats.cargoCapacity = Math.floor(n);
+    updateCargoHud();
+  } else if (stat === "speed") {
+    const n = readDevNumber("dev-stat-speed");
+    if (n == null || n <= 0) return;
+    devCheats.speedMult = n;
+  } else if (stat === "mine") {
+    const n = readDevNumber("dev-stat-mine");
+    if (n == null || n <= 0) return;
+    devCheats.mineMult = n;
+  } else if (stat === "damage") {
+    const n = readDevNumber("dev-stat-damage");
+    if (n == null || n <= 0) return;
+    devCheats.damageMult = n;
+  } else if (stat === "boost") {
+    const n = readDevNumber("dev-stat-boost");
+    if (n == null || n < 1) return;
+    devCheats.boostMax = n;
+    BOOST_MAX = n;
+    if (boostFactor > n) boostFactor = n;
+    updateBoostHud();
+  } else if (stat === "resources") {
+    const n = readDevNumber("dev-stat-resources");
+    if (n == null || n < 0) return;
+    for (const r of RESOURCES) inventory[r.id] = Math.floor(n);
+    updateCargoHud();
+  }
+  if (devMenuStatus) {
+    devMenuStatus.textContent = `Applied ${stat} override`;
+    devMenuStatus.style.color = "var(--hud-cyan)";
+  }
+}
+
+function applyAllDevStats() {
+  ["hp", "cargo", "speed", "mine", "damage", "boost"].forEach(applyDevStat);
+  if (devMenuStatus) {
+    devMenuStatus.textContent = "All listed overrides applied";
+    devMenuStatus.style.color = "var(--hud-cyan)";
+  }
+}
+
+function resetDevCheats() {
+  devCheats.maxHp = null;
+  devCheats.cargoCapacity = null;
+  devCheats.speedMult = null;
+  devCheats.mineMult = null;
+  devCheats.damageMult = null;
+  devCheats.boostMax = null;
+  BOOST_MAX = 3;
+  if (boostFactor > BOOST_MAX) boostFactor = BOOST_MAX;
+  refreshPlayerMaxHealth(false);
+  updateBoostHud();
+  updateCargoHud();
+  syncDevInputsFromCheats();
+  if (devMenuStatus) {
+    devMenuStatus.textContent = "Overrides cleared — hull/cargo from ship blocks again";
+    devMenuStatus.style.color = "var(--hud-amber)";
+  }
+}
+
+function tryDevUnlock() {
+  const code = (devCodeInput && devCodeInput.value) ? devCodeInput.value.trim() : "";
+  if (code === DEV_CODE) {
+    devAuthed = true;
+    if (devCodeStatus) {
+      devCodeStatus.textContent = "Access granted";
+      devCodeStatus.className = "ok";
+    }
+    if (devPanelEl) {
+      devPanelEl.classList.remove("gate");
+      devPanelEl.classList.add("authed");
+    }
+    syncDevInputsFromCheats();
+  } else {
+    if (devCodeStatus) {
+      devCodeStatus.textContent = "Invalid developer code";
+      devCodeStatus.className = "bad";
+    }
+  }
+}
+
+if (settingsGearEl) settingsGearEl.addEventListener("click", (e) => {
+  e.stopPropagation();
+  toggleDevPanel();
+});
+if (devCodeSubmit) devCodeSubmit.addEventListener("click", tryDevUnlock);
+if (devCodeInput) {
+  devCodeInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") tryDevUnlock();
+  });
+}
+const devClose1 = document.getElementById("dev-panel-close");
+const devClose2 = document.getElementById("dev-panel-close-2");
+if (devClose1) devClose1.addEventListener("click", closeDevPanel);
+if (devClose2) devClose2.addEventListener("click", closeDevPanel);
+if (document.getElementById("dev-apply-all")) {
+  document.getElementById("dev-apply-all").addEventListener("click", applyAllDevStats);
+}
+if (document.getElementById("dev-reset-stats")) {
+  document.getElementById("dev-reset-stats").addEventListener("click", resetDevCheats);
+}
+document.querySelectorAll("#dev-panel .apply-one").forEach((btn) => {
+  btn.addEventListener("click", () => applyDevStat(btn.getAttribute("data-stat")));
+});
+
+// ============================================================
 // MAIN LOOP
 // ============================================================
 function animate() {
   requestAnimationFrame(animate);
 
   updateMoons();
+  if (typeof ship !== "undefined" && ship) updateStarfieldFollow();
 
   if (editorOpen) {
     updateEditorCamera();
