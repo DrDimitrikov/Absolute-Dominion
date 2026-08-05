@@ -143,7 +143,7 @@
 
     #combat-box {
       position: fixed;
-      top: 18px;
+      top: 64px;
       left: 18px;
       width: 220px;
       padding: 14px 16px 12px;
@@ -811,11 +811,204 @@
       color: var(--hud-amber);
       text-shadow: 0 0 16px rgba(255,200,87,0.4);
     }
+
+    /* ---- DEV / SETTINGS ---- */
+    #settings-gear {
+      position: fixed;
+      top: 16px;
+      left: 18px;
+      z-index: 30;
+      width: 40px;
+      height: 40px;
+      border: 1px solid rgba(60,240,197,0.4);
+      background: rgba(3, 8, 16, 0.88);
+      color: var(--hud-cyan);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      clip-path: polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px));
+      box-shadow: 0 0 18px rgba(60,240,197,0.15);
+    }
+    #settings-gear:hover {
+      background: rgba(60,240,197,0.14);
+      box-shadow: 0 0 24px rgba(60,240,197,0.3);
+    }
+    #settings-gear svg {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.7;
+      stroke-linejoin: round;
+    }
+    #dev-panel {
+      display: none;
+      position: fixed;
+      top: 64px;
+      left: 18px;
+      width: 300px;
+      max-height: calc(100vh - 90px);
+      overflow-y: auto;
+      z-index: 35;
+      padding: 14px 16px 16px;
+      user-select: none;
+    }
+    #dev-panel.open { display: block; }
+    #dev-panel .dev-gate,
+    #dev-panel .dev-menu { display: none; }
+    #dev-panel.gate .dev-gate { display: block; }
+    #dev-panel.authed .dev-menu { display: block; }
+    #dev-panel label {
+      display: block;
+      font-family: var(--font-display);
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      color: var(--hud-blue);
+      margin: 10px 0 6px;
+      text-transform: uppercase;
+    }
+    #dev-panel input[type="password"],
+    #dev-panel input[type="number"],
+    #dev-panel input[type="text"] {
+      width: 100%;
+      background: rgba(0,0,0,0.45);
+      border: 1px solid rgba(126,200,255,0.25);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      padding: 8px 10px;
+      outline: none;
+    }
+    #dev-panel input:focus {
+      border-color: var(--hud-cyan);
+      box-shadow: 0 0 12px rgba(60,240,197,0.2);
+    }
+    #dev-panel .dev-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    #dev-panel .dev-btn {
+      background: rgba(60,240,197,0.12);
+      border: 1px solid rgba(60,240,197,0.35);
+      color: var(--hud-cyan);
+      font-family: var(--font-display);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      padding: 8px 12px;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+    #dev-panel .dev-btn:hover { background: rgba(60,240,197,0.22); }
+    #dev-panel .dev-btn.danger {
+      border-color: rgba(255,77,90,0.4);
+      color: var(--hud-red);
+      background: rgba(255,77,90,0.08);
+    }
+    #dev-code-status {
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--muted);
+      min-height: 16px;
+    }
+    #dev-code-status.bad { color: var(--hud-red); }
+    #dev-code-status.ok { color: var(--hud-cyan); }
+    #dev-panel .dev-hint {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.45;
+      margin-bottom: 4px;
+    }
+    #dev-panel .stat-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    #dev-panel .stat-row input { width: 100%; }
+    #dev-panel .stat-row .apply-one {
+      background: rgba(126,200,255,0.1);
+      border: 1px solid rgba(126,200,255,0.3);
+      color: var(--hud-blue);
+      font-family: var(--font-display);
+      font-size: 8px;
+      letter-spacing: 0.1em;
+      padding: 8px 8px;
+      cursor: pointer;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
   <div id="crosshair"></div>
   <div id="brand-mark">Absolute Dominion</div>
+  <button id="settings-gear" type="button" title="Settings" aria-label="Settings">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/>
+      <path d="M19.4 13.5a7.8 7.8 0 0 0 .05-1.5l2.05-1.6-2-3.45-2.45.7a7.7 7.7 0 0 0-1.3-.75L15.4 2h-4.8l-.4 2.9a7.7 7.7 0 0 0-1.3.75l-2.45-.7-2 3.45 2.05 1.6a7.8 7.8 0 0 0 0 1.5L2.45 15.1l2 3.45 2.45-.7c.4.3.84.55 1.3.75l.4 2.9h4.8l.4-2.9c.46-.2.9-.45 1.3-.75l2.45.7 2-3.45-2.05-1.6Z"/>
+    </svg>
+  </button>
+  <div id="dev-panel" class="panel gate">
+    <div class="panel-title">Developer Access</div>
+    <div class="dev-gate">
+      <div class="dev-hint">Enter developer code to unlock ship stat overrides. Looks stay unchanged.</div>
+      <label for="dev-code-input">Developer code</label>
+      <input id="dev-code-input" type="password" autocomplete="off" spellcheck="false" placeholder="••••••••" />
+      <div class="dev-actions">
+        <button id="dev-code-submit" class="dev-btn" type="button">Unlock</button>
+        <button id="dev-panel-close" class="dev-btn danger" type="button">Close</button>
+      </div>
+      <div id="dev-code-status"></div>
+    </div>
+    <div class="dev-menu">
+      <div class="dev-hint">Stat overrides only — ship visuals unchanged.</div>
+      <label>Max hull HP</label>
+      <div class="stat-row">
+        <input id="dev-stat-hp" type="number" min="1" step="1" />
+        <button class="apply-one" type="button" data-stat="hp">Set</button>
+      </div>
+      <label>Cargo capacity</label>
+      <div class="stat-row">
+        <input id="dev-stat-cargo" type="number" min="0" step="1" />
+        <button class="apply-one" type="button" data-stat="cargo">Set</button>
+      </div>
+      <label>Speed multiplier</label>
+      <div class="stat-row">
+        <input id="dev-stat-speed" type="number" min="0.1" step="0.1" />
+        <button class="apply-one" type="button" data-stat="speed">Set</button>
+      </div>
+      <label>Mining rate multiplier</label>
+      <div class="stat-row">
+        <input id="dev-stat-mine" type="number" min="0.1" step="0.1" />
+        <button class="apply-one" type="button" data-stat="mine">Set</button>
+      </div>
+      <label>Weapon damage multiplier</label>
+      <div class="stat-row">
+        <input id="dev-stat-damage" type="number" min="0.1" step="0.1" />
+        <button class="apply-one" type="button" data-stat="damage">Set</button>
+      </div>
+      <label>Boost max (x)</label>
+      <div class="stat-row">
+        <input id="dev-stat-boost" type="number" min="1" step="0.1" />
+        <button class="apply-one" type="button" data-stat="boost">Set</button>
+      </div>
+      <label>Fill all resources (amount each)</label>
+      <div class="stat-row">
+        <input id="dev-stat-resources" type="number" min="0" step="1" value="10000" />
+        <button class="apply-one" type="button" data-stat="resources">Fill</button>
+      </div>
+      <div class="dev-actions">
+        <button id="dev-apply-all" class="dev-btn" type="button">Apply all</button>
+        <button id="dev-reset-stats" class="dev-btn danger" type="button">Reset overrides</button>
+        <button id="dev-panel-close-2" class="dev-btn" type="button">Close</button>
+      </div>
+      <div id="dev-menu-status" class="dev-hint" style="margin-top:10px"></div>
+    </div>
+  </div>
   <div id="ftl-toast">
     <div class="toast-label">NAV COMPUTER</div>
     <div class="toast-msg" id="ftl-toast-msg">Initiating FTL jump</div>
